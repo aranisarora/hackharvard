@@ -2,7 +2,6 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { UserProfile, RoadmapTask, TargetCV } from '@/types';
 
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-// This is replaced by Vite at build time via the define config.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 interface GeminiMessage {
@@ -10,16 +9,14 @@ interface GeminiMessage {
   parts: { text: string }[];
 }
 
-// Helper to clean JSON string if it comes wrapped in markdown code blocks
-const cleanJsonString = (text: string): string => {
-  if (!text) return "[]";
-  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-};
-
 export const callGemini = async (
   prompt: string,
-  model: string = 'gemini-3-flash-preview'
+  useDeepResearch: boolean = false
 ): Promise<string> => {
+  const model = useDeepResearch 
+    ? 'gemini-3-pro-preview' 
+    : 'gemini-3-flash-preview';
+  
   try {
     const response = await ai.models.generateContent({
       model: model,
@@ -43,10 +40,13 @@ export const callGeminiWithContext = async (
   systemPrompt: string,
   userMessage: string,
   conversationHistory: GeminiMessage[] = [],
-  model: string = 'gemini-3-flash-preview'
+  useDeepResearch: boolean = false
 ): Promise<string> => {
-  // Map internal message format to SDK format
-  // Note: SDK expects { role, parts: [{ text }] }
+  const model = useDeepResearch 
+    ? 'gemini-3-pro-preview' 
+    : 'gemini-3-flash-preview';
+  
+  // Map conversation history to SDK content format
   const historyContents = conversationHistory.map(msg => ({
     role: msg.role,
     parts: msg.parts
@@ -297,8 +297,9 @@ export const generateRoadmap = async (
       }
     });
     
-    const jsonString = response.text || "[]";
-    return JSON.parse(cleanJsonString(jsonString));
+    const jsonString = response.text;
+    if (!jsonString) return [];
+    return JSON.parse(jsonString);
   } catch (error) {
     console.error("Failed to generate roadmap:", error);
     return [];
