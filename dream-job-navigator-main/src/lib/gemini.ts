@@ -9,6 +9,11 @@ interface GeminiMessage {
   parts: { text: string }[];
 }
 
+// Helper to clean JSON string if it comes wrapped in markdown
+const cleanJsonString = (text: string): string => {
+  return text.replace(/```json\n?|\n?```/g, '').trim();
+};
+
 export const callGemini = async (
   prompt: string,
   model: string = 'gemini-3-flash-preview'
@@ -290,9 +295,8 @@ export const generateRoadmap = async (
       }
     });
     
-    const jsonString = response.text;
-    if (!jsonString) return [];
-    return JSON.parse(jsonString);
+    const jsonString = response.text || "[]";
+    return JSON.parse(cleanJsonString(jsonString));
   } catch (error) {
     console.error("Failed to generate roadmap:", error);
     return [];
