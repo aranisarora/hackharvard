@@ -1,57 +1,37 @@
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { UserProfile, RoadmapTask, TargetCV } from '@/types';
 
-// Use process.env.API_KEY as strictly requested
-const GEMINI_API_KEY = process.env.API_KEY;
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 interface GeminiMessage {
   role: 'user' | 'model';
   parts: { text: string }[];
 }
 
-interface GeminiResponse {
-  candidates: {
-    content: {
-      parts: { text: string }[];
-    };
-  }[];
-}
-
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-});
+// Helper to clean JSON string if it comes wrapped in markdown
+const cleanJsonString = (text: string): string => {
+  if (!text) return "[]";
+  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+};
 
 export const callGemini = async (
   prompt: string,
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-3-flash-preview'
 ): Promise<string> => {
-  const url = `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-  
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-        }
-      }),
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+      },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data: GeminiResponse = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return response.text || '';
   } catch (error) {
     console.error('Error calling Gemini:', error);
     throw error;
@@ -62,49 +42,43 @@ export const callGeminiWithContext = async (
   systemPrompt: string,
   userMessage: string,
   conversationHistory: GeminiMessage[] = [],
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-3-flash-preview'
 ): Promise<string> => {
-  const url = `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-  
+  // Map conversation history to SDK content format
+  const historyContents = conversationHistory.map(msg => ({
+    role: msg.role,
+    parts: msg.parts
+  }));
+
   const contents = [
     {
-      role: 'user' as const,
+      role: 'user',
       parts: [{ text: systemPrompt }]
     },
     {
-      role: 'model' as const,
+      role: 'model',
       parts: [{ text: 'Understood. I will follow these instructions.' }]
     },
-    ...conversationHistory,
+    ...historyContents,
     {
-      role: 'user' as const,
+      role: 'user',
       parts: [{ text: userMessage }]
     }
   ];
   
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-        }
-      }),
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: contents,
+      config: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 8192,
+      },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data: GeminiResponse = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return response.text || '';
   } catch (error) {
     console.error('Error calling Gemini:', error);
     throw error;
@@ -116,9 +90,10 @@ export const analyzeCV = async (
   targetJob: string,
   targetCompany: string,
   employeeProfiles: string
-): Promise<string> => {
+): Promise<TargetCV> => {
   const prompt = `
-You are a career advisor and CV optimization expert. Analyze the following CV and compare it against successful profiles at the target company.
+You are a career advisor and CV optimization expert executing a "Deep Research" analysis. 
+Analyze the following CV and compare it against successful profiles at the target company.
 
 USER'S CURRENT CV:
 ${cvText}
@@ -126,89 +101,67 @@ ${cvText}
 TARGET POSITION: ${targetJob}
 TARGET COMPANY: ${targetCompany}
 
-SUCCESSFUL EMPLOYEE PROFILES AT TARGET COMPANY:
+SUCCESSFUL EMPLOYEE PROFILES (CONTEXT):
 ${employeeProfiles}
 
-Please provide:
-1. A detailed analysis of what the user already has that aligns with the target role
-2. Key gaps and missing qualifications compared to successful employees
-3. A "target CV" that includes both their current qualifications AND the missing elements (mark missing elements clearly)
-4. Specific, actionable recommendations organized by category:
-   - Skills to Learn (with specific course recommendations)
-   - Projects to Complete
-   - Certifications to Obtain
-   - Experience to Gain
-   - CV Wording Improvements
-5. Estimated timeline for each improvement
+Your task:
+1. Identify the user's current strengths aligned with the role.
+2. Identify CRITICAL GAPS (missing skills, certifications, experience types) compared to the successful profiles.
+3. Generate a structured JSON response representing the analysis.
 
-Format your response as JSON with the following structure:
-{
-  "currentStrengths": ["strength1", "strength2"],
-  "gaps": ["gap1", "gap2"],
-  "targetCVSections": [
-    {
-      "type": "experience|education|skills|projects|certifications|awards",
-      "title": "Section Title",
-      "content": "Content text",
-      "isCompleted": true/false,
-      "feedback": "Optional feedback for this section"
-    }
-  ],
-  "generalFeedback": ["feedback1", "feedback2"],
-  "roadmapTasks": [
-    {
-      "category": "skills|projects|certifications|experience|cv-feedback",
-      "title": "Task title",
-      "description": "Detailed description",
-      "checklist": ["Step 1", "Step 2"],
-      "estimatedDays": 30,
-      "courseLink": "URL if applicable"
-    }
-  ]
-}
+RETURN JSON ONLY.
 `;
 
-  return callGemini(prompt, 'gemini-2.5-pro-deep-research');
-};
+  const schema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      sections: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ['experience', 'education', 'skills', 'projects', 'certifications', 'awards'] },
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+            isCompleted: { type: Type.BOOLEAN },
+            isGreyedOut: { type: Type.BOOLEAN },
+            feedback: { type: Type.STRING, nullable: true },
+          },
+          required: ['id', 'type', 'title', 'content', 'isCompleted', 'isGreyedOut']
+        },
+      },
+      generalFeedback: { type: Type.ARRAY, items: { type: Type.STRING } },
+      progressPercentage: { type: Type.NUMBER },
+    },
+    required: ['sections', 'generalFeedback', 'progressPercentage']
+  };
 
-export const generateFollowUpQuestion = async (
-  userContext: Record<string, string>,
-  previousAnswers: string[]
-): Promise<string> => {
-  const prompt = `
-You are helping a user prepare for their dream job. Based on their profile, generate a thoughtful follow-up question to better understand their goals.
-
-USER CONTEXT:
-${JSON.stringify(userContext, null, 2)}
-
-PREVIOUS QUESTIONS ASKED:
-${previousAnswers.join('\n')}
-
-Generate ONE insightful follow-up question that will help understand:
-- Their passions and motivations
-- Geographic or lifestyle constraints
-- Specific career aspirations
-- Timeline flexibility
-- Learning preferences
-
-Also provide 2-3 suggested responses they can choose from.
-
-Format as JSON:
-{
-  "question": "Your question here",
-  "suggestions": ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
-}
-`;
-
-  return callGemini(prompt);
+  try {
+    // Using gemini-3-pro-preview for complex reasoning and deep analysis
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: schema,
+        thinkingConfig: { thinkingBudget: 2048 }, // Allow for reasoning on gaps
+      }
+    });
+    
+    const text = response.text || "{}";
+    const cleaned = cleanJsonString(text);
+    return JSON.parse(cleaned) as TargetCV;
+  } catch (error) {
+    console.error('Error analyzing CV:', error);
+    throw error;
+  }
 };
 
 export const generateRoadmap = async (
   userProfile: UserProfile,
   targetCV: TargetCV | null
 ): Promise<RoadmapTask[]> => {
-  const model = 'deep-research-pro-preview-12-2025';
-  
   const prompt = `
     Generate a highly detailed, personalized career roadmap for a user aiming to become a ${userProfile.targetJob} at ${userProfile.targetCompany}.
     
@@ -218,7 +171,13 @@ export const generateRoadmap = async (
     - Weekly Availability: ${userProfile.weeklyHours} hours
     - Passions: ${userProfile.passions}
     
-    ${targetCV ? `Based on their CV Analysis, they specifically need to work on gaps identified in: ${targetCV.generalFeedback.join(', ')}` : ''}
+    ${targetCV ? `
+    CRITICAL INPUT FROM CV ANALYSIS:
+    The roadmap MUST address these specific gaps identified in their deep research analysis:
+    ${targetCV.generalFeedback.join('\n')}
+    
+    Also, incorporate steps to achieve the items marked as 'not completed' (isGreyedOut=true) in their Target CV sections.
+    ` : ''}
 
     Create 5-7 actionable, high-impact tasks categorized into: 'skills', 'projects', 'certifications', 'experience', or 'cv-feedback'.
     
@@ -229,39 +188,62 @@ export const generateRoadmap = async (
     4. A specific checklist of 3-5 sub-steps to complete the task
     5. A relevant course link (Coursera, Udemy, EdX, or official documentation)
     6. A fictional but realistic mentor persona from ${userProfile.targetCompany} who would recommend this.
-
-    IMPORTANT: Return ONLY valid JSON in the following format (no markdown):
-    [
-      {
-        "id": "unique_string",
-        "category": "skills", 
-        "title": "Task Title",
-        "description": "Task Description",
-        "checklist": [
-          { "id": "c1", "text": "Step 1", "isCompleted": false },
-          { "id": "c2", "text": "Step 2", "isCompleted": false }
-        ],
-        "deadline": "YYYY-MM-DD",
-        "isCompleted": false,
-        "courseLink": "https://...",
-        "mentor": {
-          "name": "Mentor Name",
-          "title": "Job Title",
-          "company": "${userProfile.targetCompany}",
-          "email": "email@example.com"
-        }
-      }
-    ]
   `;
 
+  const schema: Schema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        id: { type: Type.STRING },
+        category: { type: Type.STRING, enum: ['skills', 'projects', 'certifications', 'experience', 'cv-feedback'] },
+        title: { type: Type.STRING },
+        description: { type: Type.STRING },
+        checklist: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              text: { type: Type.STRING },
+              isCompleted: { type: Type.BOOLEAN },
+            },
+            required: ['id', 'text', 'isCompleted']
+          },
+        },
+        deadline: { type: Type.STRING },
+        isCompleted: { type: Type.BOOLEAN },
+        courseLink: { type: Type.STRING, nullable: true },
+        mentor: {
+          type: Type.OBJECT,
+          nullable: true,
+          properties: {
+            name: { type: Type.STRING },
+            title: { type: Type.STRING },
+            company: { type: Type.STRING },
+            email: { type: Type.STRING },
+          },
+          required: ['name', 'title', 'company', 'email']
+        },
+      },
+      required: ['id', 'category', 'title', 'description', 'checklist', 'deadline', 'isCompleted']
+    },
+  };
+
   try {
-    const jsonString = await callGemini(prompt, model);
-    // Clean up potential markdown formatting
-    const cleanJson = jsonString.replace(/```json\n?|\n?```/g, '').trim();
-    return JSON.parse(cleanJson);
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: schema,
+      }
+    });
+    
+    const jsonString = response.text || "[]";
+    return JSON.parse(cleanJsonString(jsonString));
   } catch (error) {
     console.error("Failed to generate roadmap:", error);
-    // Fallback or rethrow
-    throw error;
+    return [];
   }
 };

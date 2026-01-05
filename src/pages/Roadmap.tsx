@@ -29,6 +29,7 @@ import {
 import { getCurrentUser, logout, getUserRoadmap, saveRoadmap, getUserTargetCV } from '@/lib/storage';
 import { UserProfile, RoadmapTask } from '@/types';
 import { callGeminiWithContext, generateRoadmap } from '@/lib/gemini';
+import { toast } from 'sonner';
 
 const categoryConfig = {
   skills: { label: 'Skills to Learn', icon: Briefcase, color: 'text-primary', bgColor: 'bg-primary/10' },
@@ -66,6 +67,7 @@ const Roadmap = () => {
         setExpandedTasks(new Set([existingRoadmap[0].id]));
       }
     } else {
+      // Auto-generate if missing
       handleGenerateRoadmap(currentUser);
     }
   }, [navigate]);
@@ -78,15 +80,23 @@ const Roadmap = () => {
     setIsGenerating(true);
     try {
       const targetCV = getUserTargetCV(currentUser.id);
+      
+      // If no Target CV exists, we generate a roadmap without deep insights first
+      if (!targetCV) {
+        toast.info("Tip: Run Deep Research in CV Editor for a more personalized roadmap.");
+      }
+
       const generatedTasks = await generateRoadmap(currentUser, targetCV);
       setTasks(generatedTasks);
       saveRoadmap(currentUser.id, generatedTasks);
+      
       if (generatedTasks.length > 0) {
         setExpandedTasks(new Set([generatedTasks[0].id]));
       }
+      toast.success("Roadmap generated successfully!");
     } catch (error) {
       console.error("Error generating roadmap:", error);
-      // Optional: Add toast notification here for error
+      toast.error("Failed to generate roadmap. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -263,7 +273,7 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             disabled={isGenerating}
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            {isGenerating ? 'Generating...' : 'Regenerate Plan'}
+            {isGenerating ? 'Analyzing & Generating...' : 'Regenerate Plan'}
           </Button>
         </div>
 
