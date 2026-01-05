@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { UserProfile, RoadmapTask, TargetCV } from '@/types';
+import { UserProfile, RoadmapTask, TargetCV, CVSection } from '@/types';
 
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -154,6 +155,54 @@ RETURN JSON ONLY.
   } catch (error) {
     console.error('Error analyzing CV:', error);
     throw error;
+  }
+};
+
+export const parseResumetoSections = async (resumeText: string): Promise<CVSection[]> => {
+  const prompt = `
+    You are a CV parser. Convert the following unstructured resume text into a structured JSON array of sections.
+    
+    RESUME TEXT:
+    ${resumeText}
+    
+    Rules:
+    1. Organize content into types: 'experience', 'education', 'skills', 'projects', 'certifications', 'awards'.
+    2. Use Markdown formatting for the 'content' field (bold for titles, bullet points for lists).
+    3. Ensure 'isCompleted' is true and 'isGreyedOut' is false for all parsed sections.
+    4. Generate a unique ID for each section.
+  `;
+
+  const schema: Schema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        id: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['experience', 'education', 'skills', 'projects', 'certifications', 'awards'] },
+        title: { type: Type.STRING },
+        content: { type: Type.STRING },
+        isCompleted: { type: Type.BOOLEAN },
+        isGreyedOut: { type: Type.BOOLEAN },
+      },
+      required: ['id', 'type', 'title', 'content', 'isCompleted', 'isGreyedOut']
+    },
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: schema,
+      }
+    });
+    
+    const jsonString = response.text || "[]";
+    return JSON.parse(cleanJsonString(jsonString));
+  } catch (error) {
+    console.error("Failed to parse resume:", error);
+    return [];
   }
 };
 

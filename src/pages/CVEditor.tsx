@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -29,12 +30,12 @@ import {
   getUserCV,
   generateId 
 } from '@/lib/storage';
-import { analyzeCV, generateRoadmap } from '@/lib/gemini';
+import { analyzeCV, generateRoadmap, parseResumetoSections } from '@/lib/gemini';
 import { getTopEmployeeProfiles, formatProfilesForAnalysis } from '@/lib/coresignal';
 import { UserProfile, CVSection, TargetCV } from '@/types';
 import { toast } from 'sonner';
 
-// Default template if no CV exists
+// Default template fallback
 const templateSections: CVSection[] = [
   {
     id: '1',
@@ -69,6 +70,7 @@ const CVEditor = () => {
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [generalFeedback, setGeneralFeedback] = useState<string[]>([]);
 
   useEffect(() => {
@@ -79,22 +81,38 @@ const CVEditor = () => {
     }
     setUser(currentUser);
 
-    // Logic for loading initial data:
-    // 1. Check if there's a saved manual draft (most recent edits)
-    // 2. If not, check if there's a previous analysis result
-    // 3. If neither, use the template
     const savedDraft = getUserCV(currentUser.id);
     const savedTargetCV = getUserTargetCV(currentUser.id);
 
     if (savedDraft && savedDraft.length > 0) {
       setSections(savedDraft);
-      // If we also have a target CV, load its feedback but keep draft content
       if (savedTargetCV) {
         setGeneralFeedback(savedTargetCV.generalFeedback);
       }
     } else if (savedTargetCV) {
       setSections(savedTargetCV.sections);
       setGeneralFeedback(savedTargetCV.generalFeedback);
+    } else if (currentUser.resumeText) {
+      // If we have extracted text from the onboarding PDF but no parsed sections yet,
+      // Parse it now!
+      setIsParsing(true);
+      toast.info("Structuring your uploaded CV...");
+      parseResumetoSections(currentUser.resumeText)
+        .then(parsedSections => {
+          if (parsedSections && parsedSections.length > 0) {
+            setSections(parsedSections);
+            saveUserCV(currentUser.id, parsedSections);
+            toast.success("CV loaded successfully!");
+          } else {
+            setSections(templateSections);
+            toast.error("Could not structure CV. Loaded template instead.");
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          setSections(templateSections);
+        })
+        .finally(() => setIsParsing(false));
     } else {
       setSections(templateSections);
     }
@@ -267,7 +285,7 @@ const CVEditor = () => {
               variant="outline"
               size="sm"
               onClick={handleToggleEdit}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || isParsing}
             >
               {isEditing ? <Save className="h-4 w-4 mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
               {isEditing ? 'Save Changes' : 'Edit CV'}
@@ -276,7 +294,7 @@ const CVEditor = () => {
               variant="hero" 
               size="sm" 
               onClick={handleDeepAnalysis}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || isParsing}
             >
               {isAnalyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
               {isAnalyzing ? 'Analyzing...' : 'Deep Research Analysis'}
@@ -298,7 +316,16 @@ const CVEditor = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* CV Canvas */}
           <div className="lg:col-span-2">
-            <div className="canvas-paper p-8 min-h-[800px] shadow-sm">
+            <div className="canvas-paper p-8 min-h-[800px] shadow-sm relative">
+              {/* Parsing Overlay */}
+              {isParsing && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-xl">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+                  <h3 className="text-xl font-semibold">Structuring your CV...</h3>
+                  <p className="text-muted-foreground">Organizing your upload into editable sections</p>
+                </div>
+              )}
+
               {/* Header */}
               <div className="text-center mb-8 pb-6 border-b border-border">
                 <h2 className="text-2xl font-bold text-foreground mb-1">
@@ -438,8 +465,10 @@ const CVEditor = () => {
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p className="mb-4">No analysis run yet.</p>
-                  <Button variant="outline" size="sm" onClick={handleDeepAnalysis} disabled={isAnalyzing}>
+                  <p className="mb-4">
+                    {isParsing ? 'Analyzing your structure...' : 'Run Deep Research to compare your CV against top performers and get tailored advice.'}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleDeepAnalysis} disabled={isAnalyzing || isParsing}>
                     {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Run Deep Research'}
                   </Button>
                 </div>
