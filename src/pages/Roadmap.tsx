@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ const Roadmap = () => {
     }
     setUser(currentUser);
 
-    // Load existing roadmap or stay empty
+    // Load purely from storage. No demo data.
     const existingRoadmap = getUserRoadmap(currentUser.id);
     if (existingRoadmap && existingRoadmap.length > 0) {
       setTasks(existingRoadmap);
@@ -71,19 +72,19 @@ const Roadmap = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  const handleGenerateRoadmap = async (currentUser: UserProfile) => {
+  const handleGenerateRoadmap = async () => {
+    if (!user) return;
     setIsGenerating(true);
     try {
-      const targetCV = getUserTargetCV(currentUser.id);
+      const targetCV = getUserTargetCV(user.id);
       
-      // If no Target CV exists, we generate a roadmap without deep insights first
       if (!targetCV) {
-        toast.info("For best results, analyze your CV in the CV Editor first.");
+        toast.info("Generating roadmap based on profile only. For better results, use CV Editor first.");
       }
 
-      const generatedTasks = await generateRoadmap(currentUser, targetCV);
+      const generatedTasks = await generateRoadmap(user, targetCV);
       setTasks(generatedTasks);
-      saveRoadmap(currentUser.id, generatedTasks);
+      saveRoadmap(user.id, generatedTasks);
       
       if (generatedTasks.length > 0) {
         setExpandedTasks(new Set([generatedTasks[0].id]));
@@ -158,17 +159,12 @@ const Roadmap = () => {
     setIsChatLoading(true);
 
     try {
-      const systemPrompt = `You are a helpful career advisor assistant for PathForge, a platform that helps users achieve their dream careers. 
+      const systemPrompt = `You are a career advisor assistant. 
+      User Profile: ${user?.targetJob} at ${user?.targetCompany}.
+      Roadmap Status: ${tasks.length} tasks, ${getOverallProgress()}% complete.
+      Tasks: ${tasks.map(t => t.title).join(', ')}.
       
-The user's profile:
-- Target Job: ${user?.targetJob}
-- Target Company: ${user?.targetCompany}
-- Timeline: ${user?.timeframe}
-
-Current roadmap tasks:
-${tasks.map(t => `- ${t.title}: ${t.description} (${getTaskProgress(t)}% complete)`).join('\n')}
-
-Provide helpful, specific advice about their career journey and tasks. Be encouraging but practical.`;
+      Answer the user's question specifically about their roadmap.`;
 
       const response = await callGeminiWithContext(systemPrompt, userMessage, []);
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
@@ -191,38 +187,24 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border p-6 flex flex-col">
         <div className="mb-8">
-          <Link to="/dashboard" className="text-xl font-bold text-foreground">
-            PathForge
-          </Link>
+          <Link to="/dashboard" className="text-xl font-bold text-foreground">PathForge</Link>
         </div>
-
         <nav className="flex-1 space-y-2">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
+          <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
             <Target className="h-5 w-5" />
             Dashboard
           </Link>
-          <Link
-            to="/cv-editor"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
+          <Link to="/cv-editor" className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
             <FileText className="h-5 w-5" />
             CV Editor
           </Link>
-          <Link
-            to="/roadmap"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-          >
+          <Link to="/roadmap" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground font-medium">
             <Route className="h-5 w-5" />
             Roadmap
           </Link>
         </nav>
-
         <div className="pt-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -230,22 +212,17 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
-              <p className="text-xs text-muted-foreground">{user.targetJob}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.targetJob}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <LogOut className="h-4 w-4" />
             Sign out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="ml-64 p-8 pb-24">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
@@ -256,23 +233,15 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">Your Roadmap</h1>
-              <p className="text-sm text-muted-foreground">
-                Step-by-step path to becoming {user.targetJob} at {user.targetCompany}
-              </p>
+              <p className="text-sm text-muted-foreground">Step-by-step path to {user.targetJob}</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => handleGenerateRoadmap(user)} 
-            disabled={isGenerating}
-          >
+          <Button variant="outline" size="sm" onClick={handleGenerateRoadmap} disabled={isGenerating}>
             <Sparkles className="h-4 w-4 mr-2" />
-            {isGenerating ? 'Analyzing & Generating...' : (tasks.length > 0 ? 'Regenerate Plan' : 'Generate Roadmap')}
+            {isGenerating ? 'Generating...' : (tasks.length > 0 ? 'Regenerate Plan' : 'Generate Roadmap')}
           </Button>
         </div>
 
-        {/* Loading State */}
         {isGenerating ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-6 animate-pulse">
             <div className="p-4 bg-primary/10 rounded-full">
@@ -280,9 +249,7 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold">Creating Your Blueprint</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Our AI deep research model is analyzing successful {user.targetJob} profiles at {user.targetCompany} to build your custom path...
-              </p>
+              <p className="text-muted-foreground">Analyzing success patterns for {user.targetJob}...</p>
             </div>
           </div>
         ) : tasks.length === 0 ? (
@@ -292,34 +259,26 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             </div>
             <h3 className="text-xl font-semibold mb-2">No Roadmap Yet</h3>
             <p className="text-muted-foreground max-w-md mb-6">
-              Ready to start? Generate a personalized roadmap based on your current profile and target job.
+              Generate a personalized roadmap based on your current profile and target job.
             </p>
-            <Button onClick={() => handleGenerateRoadmap(user)} size="lg" variant="hero">
+            <Button onClick={handleGenerateRoadmap} size="lg" variant="hero">
               Generate My Roadmap
             </Button>
           </div>
         ) : (
           <>
-            {/* Overall Progress */}
             <div className="bg-card border border-border rounded-xl p-6 mb-8">
               <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-foreground">Overall Progress</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {tasks.filter(t => t.isCompleted).length} of {tasks.length} tasks completed
-                  </p>
-                </div>
+                <h3 className="font-semibold text-foreground">Overall Progress</h3>
                 <span className="text-2xl font-bold text-primary">{getOverallProgress()}%</span>
               </div>
               <Progress value={getOverallProgress()} className="h-3" />
             </div>
 
-            {/* Task Categories */}
             <div className="space-y-8">
               {Object.entries(categoryConfig).map(([category, config]) => {
                 const categoryTasks = groupedTasks[category] || [];
                 if (categoryTasks.length === 0) return null;
-
                 const CategoryIcon = config.icon;
 
                 return (
@@ -329,123 +288,43 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
                         <CategoryIcon className={`h-5 w-5 ${config.color}`} />
                       </div>
                       <h2 className="text-lg font-semibold text-foreground">{config.label}</h2>
-                      <span className="text-sm text-muted-foreground">
-                        ({categoryTasks.filter(t => t.isCompleted).length}/{categoryTasks.length})
-                      </span>
                     </div>
 
                     <div className="space-y-4">
                       {categoryTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="bg-card border border-border rounded-xl overflow-hidden shadow-sm transition-all hover:border-primary/20"
-                        >
-                          {/* Task Header */}
-                          <button
-                            onClick={() => toggleTask(task.id)}
-                            className="w-full p-4 flex items-center justify-between text-left hover:bg-accent/50 transition-colors"
-                          >
+                        <div key={task.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                          <button onClick={() => toggleTask(task.id)} className="w-full p-4 flex items-center justify-between text-left hover:bg-accent/50 transition-colors">
                             <div className="flex items-center gap-4 flex-1">
-                              {task.isCompleted ? (
-                                <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h3 className={`font-medium ${task.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                  {task.title}
-                                </h3>
+                              {task.isCompleted ? <CheckCircle2 className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                              <div>
+                                <h3 className={`font-medium ${task.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</h3>
                                 <div className="flex items-center gap-4 mt-1">
-                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    Due: {new Date(task.deadline).toLocaleDateString()}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {getTaskProgress(task)}% complete
-                                  </span>
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> Due: {new Date(task.deadline).toLocaleDateString()}</span>
                                 </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
                               <Progress value={getTaskProgress(task)} className="w-24 h-2 hidden sm:block" />
-                              {expandedTasks.has(task.id) ? (
-                                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                              ) : (
-                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                              )}
+                              {expandedTasks.has(task.id) ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
                             </div>
                           </button>
 
-                          {/* Expanded Content */}
                           {expandedTasks.has(task.id) && (
-                            <div className="p-4 pt-0 border-t border-border mt-2 bg-accent/5 animate-accordion-down">
-                              <p className="text-sm text-muted-foreground mb-4 leading-relaxed mt-4">
-                                {task.description}
-                              </p>
-
-                              {/* Checklist */}
+                            <div className="p-4 pt-0 border-t border-border mt-2 bg-accent/5">
+                              <p className="text-sm text-muted-foreground mb-4 mt-4">{task.description}</p>
                               <div className="space-y-2 mb-4 bg-background p-4 rounded-lg border border-border/50">
-                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Action Items</h4>
                                 {task.checklist.map((item) => (
-                                  <label
-                                    key={item.id}
-                                    className="flex items-start gap-3 cursor-pointer group p-1.5 hover:bg-accent rounded transition-colors"
-                                  >
-                                    <button
-                                      onClick={() => toggleChecklistItem(task.id, item.id)}
-                                      className={`
-                                        w-5 h-5 rounded border-2 flex items-center justify-center transition-colors mt-0.5 flex-shrink-0
-                                        ${item.isCompleted 
-                                          ? 'bg-success border-success' 
-                                          : 'border-border group-hover:border-primary'
-                                        }
-                                      `}
-                                    >
-                                      {item.isCompleted && (
-                                        <CheckCircle2 className="h-3 w-3 text-success-foreground" />
-                                      )}
+                                  <label key={item.id} className="flex items-start gap-3 cursor-pointer group p-1.5 hover:bg-accent rounded">
+                                    <button onClick={() => toggleChecklistItem(task.id, item.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center ${item.isCompleted ? 'bg-success border-success' : 'border-border'}`}>
+                                      {item.isCompleted && <CheckCircle2 className="h-3 w-3 text-success-foreground" />}
                                     </button>
-                                    <span className={`text-sm leading-snug ${item.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                      {item.text}
-                                    </span>
+                                    <span className={`text-sm ${item.isCompleted ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{item.text}</span>
                                   </label>
                                 ))}
                               </div>
-
-                              {/* Course Link & Mentor */}
-                              <div className="flex flex-wrap gap-4 mt-4">
-                                {task.courseLink && (
-                                  <a
-                                    href={task.courseLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 text-sm px-3 py-2 bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                    Recommended Resource
-                                  </a>
-                                )}
-                                {task.mentor && (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 bg-muted rounded-md">
-                                    <User className="h-4 w-4" />
-                                    Suggested Mentor: <span className="font-medium text-foreground">{task.mentor.name}</span> ({task.mentor.title})
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Certificate Upload for Skills/Certifications */}
-                              {(task.category === 'skills' || task.category === 'certifications') && (
-                                <div className="mt-4 pt-4 border-t border-border/50">
-                                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                                    Proof of Work
-                                  </p>
-                                  <label className="flex items-center gap-2 cursor-pointer w-fit">
-                                    <div className="flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded-lg hover:bg-muted/50 hover:border-primary transition-colors">
-                                      <Upload className="h-4 w-4 text-muted-foreground" />
-                                      <span className="text-sm text-muted-foreground">Upload Certificate</span>
-                                    </div>
-                                    <input type="file" className="hidden" accept=".pdf,.jpg,.png" />
-                                  </label>
+                              {task.mentor && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 bg-muted rounded-md">
+                                  <User className="h-4 w-4" /> Suggested Mentor: <span className="font-medium text-foreground">{task.mentor.name}</span>
                                 </div>
                               )}
                             </div>
@@ -461,68 +340,28 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
         )}
       </main>
 
-      {/* Floating Chat Button */}
-      <button
-        onClick={() => setShowChat(!showChat)}
-        className="fixed bottom-6 right-6 p-4 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-colors z-50 hover:scale-105 active:scale-95 duration-200"
-      >
+      <button onClick={() => setShowChat(!showChat)} className="fixed bottom-6 right-6 p-4 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 z-50">
         {showChat ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
       </button>
 
-      {/* Chat Panel */}
       {showChat && (
-        <div className="fixed bottom-24 right-6 w-96 bg-card border border-border rounded-xl shadow-xl z-50 flex flex-col max-h-[500px] animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-24 right-6 w-96 bg-card border border-border rounded-xl shadow-xl z-50 flex flex-col max-h-[500px]">
           <div className="p-4 border-b border-border bg-muted/30">
             <h3 className="font-semibold text-foreground">Career Assistant</h3>
-            <p className="text-xs text-muted-foreground">Ask questions about your roadmap</p>
           </div>
-
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]">
-            {chatMessages.length === 0 && (
-              <div className="text-center text-muted-foreground text-sm py-8">
-                <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Ask me anything about your career journey!</p>
-              </div>
-            )}
+            {chatMessages.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">Ask me about your roadmap!</p>}
             {chatMessages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[85%] p-3 rounded-lg text-sm ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-none'
-                      : 'bg-muted text-foreground rounded-bl-none'
-                  }`}
-                >
-                  {msg.content}
-                </div>
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] p-3 rounded-lg text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>{msg.content}</div>
               </div>
             ))}
-            {isChatLoading && (
-              <div className="flex justify-start">
-                <div className="bg-muted p-3 rounded-lg rounded-bl-none">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              </div>
-            )}
+            {isChatLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             <div ref={chatEndRef} />
           </div>
-
-          <div className="p-4 border-t border-border bg-background rounded-b-xl">
-            <div className="flex gap-2">
-              <Input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                placeholder="Type your question..."
-                className="flex-1"
-              />
-              <Button size="icon" onClick={sendChatMessage} disabled={isChatLoading}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="p-4 border-t border-border bg-background rounded-b-xl flex gap-2">
+            <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()} placeholder="Ask a question..." className="flex-1" />
+            <Button size="icon" onClick={sendChatMessage} disabled={isChatLoading}><Send className="h-4 w-4" /></Button>
           </div>
         </div>
       )}

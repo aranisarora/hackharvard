@@ -2,13 +2,7 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { UserProfile, RoadmapTask, TargetCV, CVSection } from '@/types';
 
-// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-interface GeminiMessage {
-  role: 'user' | 'model';
-  parts: { text: string }[];
-}
 
 // Helper to clean JSON string if it comes wrapped in markdown
 const cleanJsonString = (text: string): string => {
@@ -16,69 +10,29 @@ const cleanJsonString = (text: string): string => {
   return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 };
 
-export const callGemini = async (
-  prompt: string,
-  model: string = 'gemini-3-flash-preview'
-): Promise<string> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192,
-      },
-    });
-
-    return response.text || '';
-  } catch (error) {
-    console.error('Error calling Gemini:', error);
-    throw error;
-  }
-};
-
 export const callGeminiWithContext = async (
   systemPrompt: string,
   userMessage: string,
-  conversationHistory: GeminiMessage[] = [],
-  model: string = 'gemini-3-flash-preview'
+  conversationHistory: {role: 'user'|'assistant'|'model', content?: string, parts?: {text: string}[]}[] = []
 ): Promise<string> => {
-  // Map conversation history to SDK content format
   const historyContents = conversationHistory.map(msg => ({
-    role: msg.role,
-    parts: msg.parts
+    role: msg.role === 'assistant' ? 'model' : msg.role,
+    parts: msg.parts || [{ text: msg.content || '' }]
   }));
 
   const contents = [
-    {
-      role: 'user',
-      parts: [{ text: systemPrompt }]
-    },
-    {
-      role: 'model',
-      parts: [{ text: 'Understood. I will follow these instructions.' }]
-    },
+    { role: 'user', parts: [{ text: systemPrompt }] },
+    { role: 'model', parts: [{ text: 'Understood. I will act as the career advisor.' }] },
     ...historyContents,
-    {
-      role: 'user',
-      parts: [{ text: userMessage }]
-    }
+    { role: 'user', parts: [{ text: userMessage }] }
   ];
   
   try {
     const response = await ai.models.generateContent({
-      model: model,
-      contents: contents,
-      config: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192,
-      },
+      model: 'gemini-3-flash-preview',
+      contents: contents as any,
+      config: { temperature: 0.7, maxOutputTokens: 8192 },
     });
-
     return response.text || '';
   } catch (error) {
     console.error('Error calling Gemini:', error);
@@ -93,25 +47,23 @@ export const analyzeCV = async (
   employeeProfiles: string
 ): Promise<TargetCV> => {
   const prompt = `
-You are a career advisor and CV optimization expert executing a "Deep Research" analysis. 
-Analyze the following CV and compare it against successful profiles at the target company.
+    You are a career advisor executing a "Deep Research" analysis. 
+    Analyze the USER CV against the TARGET ROLE and SUCCESSFUL PROFILES.
 
-USER'S CURRENT CV:
-${cvText}
+    USER CV: ${cvText}
+    TARGET: ${targetJob} at ${targetCompany}
+    CONTEXT (Top Performers): ${employeeProfiles}
 
-TARGET POSITION: ${targetJob}
-TARGET COMPANY: ${targetCompany}
+    Task:
+    1. Reconstruct the user's CV into structured sections.
+    2. Identify CRITICAL GAPS compared to the successful profiles.
+    3. Create a 'Target CV' structure. 
+       - Existing strong items should be marked isCompleted: true.
+       - Missing critical items (skills, certs, projects) should be added as NEW sections with isCompleted: false and isGreyedOut: true.
+    4. Provide specific feedback for each section.
 
-SUCCESSFUL EMPLOYEE PROFILES (CONTEXT):
-${employeeProfiles}
-
-Your task:
-1. Identify the user's current strengths aligned with the role.
-2. Identify CRITICAL GAPS (missing skills, certifications, experience types) compared to the successful profiles.
-3. Generate a structured JSON response representing the analysis.
-
-RETURN JSON ONLY.
-`;
+    Output JSON matching the Schema.
+  `;
 
   const schema: Schema = {
     type: Type.OBJECT,
@@ -150,8 +102,7 @@ RETURN JSON ONLY.
     });
     
     const text = response.text || "{}";
-    const cleaned = cleanJsonString(text);
-    return JSON.parse(cleaned) as TargetCV;
+    return JSON.parse(cleanJsonString(text)) as TargetCV;
   } catch (error) {
     console.error('Error analyzing CV:', error);
     throw error;
@@ -160,16 +111,12 @@ RETURN JSON ONLY.
 
 export const parseResumetoSections = async (resumeText: string): Promise<CVSection[]> => {
   const prompt = `
-    You are a CV parser. Convert the following unstructured resume text into a structured JSON array of sections.
+    Parse this resume text into structured sections.
+    RESUME TEXT: ${resumeText}
     
-    RESUME TEXT:
-    ${resumeText}
-    
-    Rules:
-    1. Organize content into types: 'experience', 'education', 'skills', 'projects', 'certifications', 'awards'.
-    2. Use Markdown formatting for the 'content' field (bold for titles, bullet points for lists).
-    3. Ensure 'isCompleted' is true and 'isGreyedOut' is false for all parsed sections.
-    4. Generate a unique ID for each section.
+    Format contents with Markdown.
+    Generate a unique ID for each section.
+    isCompleted = true, isGreyedOut = false.
   `;
 
   const schema: Schema = {
@@ -192,14 +139,9 @@ export const parseResumetoSections = async (resumeText: string): Promise<CVSecti
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-      }
+      config: { responseMimeType: 'application/json', responseSchema: schema }
     });
-    
-    const jsonString = response.text || "[]";
-    return JSON.parse(cleanJsonString(jsonString));
+    return JSON.parse(cleanJsonString(response.text || "[]"));
   } catch (error) {
     console.error("Failed to parse resume:", error);
     return [];
@@ -210,32 +152,19 @@ export const generateRoadmap = async (
   userProfile: UserProfile,
   targetCV: TargetCV | null
 ): Promise<RoadmapTask[]> => {
+  const gaps = targetCV?.generalFeedback.join('\n') || "General career advancement";
+  
   const prompt = `
-    Generate a highly detailed, personalized career roadmap for a user aiming to become a ${userProfile.targetJob} at ${userProfile.targetCompany}.
+    Create a career roadmap for a ${userProfile.targetJob} at ${userProfile.targetCompany}.
+    User Location: ${userProfile.location}. 
+    Timeline: ${userProfile.timeframe}.
+    Weekly Hours: ${userProfile.weeklyHours}.
     
-    User Context:
-    - Current Location: ${userProfile.location}
-    - Timeline: ${userProfile.timeframe}
-    - Weekly Availability: ${userProfile.weeklyHours} hours
-    - Passions: ${userProfile.passions}
-    
-    ${targetCV ? `
-    CRITICAL INPUT FROM CV ANALYSIS:
-    The roadmap MUST address these specific gaps identified in their deep research analysis:
-    ${targetCV.generalFeedback.join('\n')}
-    
-    Also, incorporate steps to achieve the items marked as 'not completed' (isGreyedOut=true) in their Target CV sections.
-    ` : ''}
+    Focus specifically on these gaps:
+    ${gaps}
 
-    Create 5-7 actionable, high-impact tasks categorized into: 'skills', 'projects', 'certifications', 'experience', or 'cv-feedback'.
-    
-    For each task, provide:
-    1. A clear title
-    2. A convincing description of why this is crucial for ${userProfile.targetCompany}
-    3. A realistic deadline based on the user's ${userProfile.timeframe} timeframe (from today: ${new Date().toISOString().split('T')[0]})
-    4. A specific checklist of 3-5 sub-steps to complete the task
-    5. A relevant course link (Coursera, Udemy, EdX, or official documentation)
-    6. A fictional but realistic mentor persona from ${userProfile.targetCompany} who would recommend this.
+    Generate 5-7 distinct, actionable tasks (Skills, Projects, Certifications, Experience, or CV Polish).
+    Include a fictional mentor from ${userProfile.targetCompany}.
   `;
 
   const schema: Schema = {
@@ -282,14 +211,9 @@ export const generateRoadmap = async (
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-      }
+      config: { responseMimeType: 'application/json', responseSchema: schema }
     });
-    
-    const jsonString = response.text || "[]";
-    return JSON.parse(cleanJsonString(jsonString));
+    return JSON.parse(cleanJsonString(response.text || "[]"));
   } catch (error) {
     console.error("Failed to generate roadmap:", error);
     return [];

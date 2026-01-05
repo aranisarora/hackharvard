@@ -9,7 +9,6 @@ import {
   FileText, 
   Route, 
   Target,
-  Download,
   ChevronLeft,
   User,
   LogOut,
@@ -35,32 +34,11 @@ import { getTopEmployeeProfiles, formatProfilesForAnalysis } from '@/lib/coresig
 import { UserProfile, CVSection, TargetCV } from '@/types';
 import { toast } from 'sonner';
 
-// Default template fallback
-const templateSections: CVSection[] = [
-  {
-    id: '1',
-    type: 'experience',
-    title: 'Professional Experience',
-    content: '**Position Title** | Company Name | Dates\n- Key achievement 1\n- Key achievement 2\n- Key achievement 3',
-    isCompleted: true,
-    isGreyedOut: false,
-  },
-  {
-    id: '2',
-    type: 'education',
-    title: 'Education',
-    content: '**Degree Name** | University | Year\n- Relevant coursework or honors',
-    isCompleted: true,
-    isGreyedOut: false,
-  },
-  {
-    id: '3',
-    type: 'skills',
-    title: 'Skills',
-    content: '**Technical:** Skill 1, Skill 2, Skill 3\n**Soft Skills:** Leadership, Communication',
-    isCompleted: true,
-    isGreyedOut: false,
-  }
+// Blank template for new users without a PDF
+const emptyTemplate: CVSection[] = [
+  { id: '1', type: 'experience', title: 'Professional Experience', content: '', isCompleted: false, isGreyedOut: false },
+  { id: '2', type: 'education', title: 'Education', content: '', isCompleted: false, isGreyedOut: false },
+  { id: '3', type: 'skills', title: 'Skills', content: '', isCompleted: false, isGreyedOut: false }
 ];
 
 const CVEditor = () => {
@@ -104,17 +82,17 @@ const CVEditor = () => {
             saveUserCV(currentUser.id, parsedSections);
             toast.success("CV loaded successfully!");
           } else {
-            setSections(templateSections);
-            toast.error("Could not structure CV. Loaded template instead.");
+            setSections(emptyTemplate);
+            toast.warning("Could not structure CV automatically. Please fill in details.");
           }
         })
         .catch(err => {
           console.error(err);
-          setSections(templateSections);
+          setSections(emptyTemplate);
         })
         .finally(() => setIsParsing(false));
     } else {
-      setSections(templateSections);
+      setSections(emptyTemplate);
     }
   }, [navigate]);
 
@@ -210,209 +188,106 @@ const CVEditor = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar border-r border-sidebar-border p-6 flex flex-col">
         <div className="mb-8">
-          <Link to="/dashboard" className="text-xl font-bold text-foreground">
-            PathForge
-          </Link>
+          <Link to="/dashboard" className="text-xl font-bold text-foreground">PathForge</Link>
         </div>
-
         <nav className="flex-1 space-y-2">
-          <Link
-            to="/dashboard"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <Target className="h-5 w-5" />
-            Dashboard
+          <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+            <Target className="h-5 w-5" /> Dashboard
           </Link>
-          <Link
-            to="/cv-editor"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-          >
-            <FileText className="h-5 w-5" />
-            CV Editor
+          <Link to="/cv-editor" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground font-medium">
+            <FileText className="h-5 w-5" /> CV Editor
           </Link>
-          <Link
-            to="/roadmap"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <Route className="h-5 w-5" />
-            Roadmap
+          <Link to="/roadmap" className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+            <Route className="h-5 w-5" /> Roadmap
           </Link>
         </nav>
-
         <div className="pt-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
-              <p className="text-xs text-muted-foreground">{user.targetJob}</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
+          <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <LogOut className="h-4 w-4" /> Sign out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="ml-64 p-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/dashboard">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Back
-              </Link>
+              <Link to="/dashboard"><ChevronLeft className="h-4 w-4 mr-1" /> Back</Link>
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-foreground">CV Editor</h1>
-              <p className="text-sm text-muted-foreground">
-                Target: {user.targetJob} at {user.targetCompany}
-              </p>
+              <p className="text-sm text-muted-foreground">Target: {user.targetJob} at {user.targetCompany}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleToggleEdit}
-              disabled={isAnalyzing || isParsing}
-            >
+            <Button variant="outline" size="sm" onClick={handleToggleEdit} disabled={isAnalyzing || isParsing}>
               {isEditing ? <Save className="h-4 w-4 mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
               {isEditing ? 'Save Changes' : 'Edit CV'}
             </Button>
-            <Button 
-              variant="hero" 
-              size="sm" 
-              onClick={handleDeepAnalysis}
-              disabled={isAnalyzing || isParsing}
-            >
+            <Button variant="hero" size="sm" onClick={handleDeepAnalysis} disabled={isAnalyzing || isParsing}>
               {isAnalyzing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
               {isAnalyzing ? 'Analyzing...' : 'Deep Research Analysis'}
             </Button>
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="bg-card border border-border rounded-xl p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">
-              CV Match Score
-            </span>
+            <span className="text-sm font-medium text-foreground">CV Match Score</span>
             <span className="text-sm font-bold text-primary">{getProgress()}%</span>
           </div>
           <Progress value={getProgress()} className="h-2" />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* CV Canvas */}
           <div className="lg:col-span-2">
             <div className="canvas-paper p-8 min-h-[800px] shadow-sm relative">
-              {/* Parsing Overlay */}
               {isParsing && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-xl">
                   <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
                   <h3 className="text-xl font-semibold">Structuring your CV...</h3>
-                  <p className="text-muted-foreground">Organizing your upload into editable sections</p>
                 </div>
               )}
 
-              {/* Header */}
               <div className="text-center mb-8 pb-6 border-b border-border">
-                <h2 className="text-2xl font-bold text-foreground mb-1">
-                  {user.email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </h2>
-                <p className="text-muted-foreground">
-                  {user.location} • {user.email}
-                </p>
+                <h2 className="text-2xl font-bold text-foreground mb-1">{user.email.split('@')[0]}</h2>
+                <p className="text-muted-foreground">{user.location} • {user.email}</p>
               </div>
 
-              {/* CV Sections */}
               <div className="space-y-6">
                 {sections.map((section) => (
                   <div
                     key={section.id}
-                    className={`
-                      relative p-4 rounded-lg transition-all duration-200 group
-                      ${activeSection === section.id ? 'ring-2 ring-primary' : ''}
-                      ${section.isGreyedOut && !isEditing ? 'bg-greyed-bg border border-dashed border-border' : 'hover:bg-accent/50'}
-                    `}
+                    className={`relative p-4 rounded-lg transition-all duration-200 group ${activeSection === section.id ? 'ring-2 ring-primary' : ''} ${section.isGreyedOut && !isEditing ? 'bg-greyed-bg border border-dashed border-border' : 'hover:bg-accent/50'}`}
                     onClick={() => !isEditing && setActiveSection(section.id)}
                   >
-                    {/* Status badge (only view mode) */}
                     {!isEditing && (
                       <div className="absolute top-2 right-2 flex items-center gap-2">
                         {section.isGreyedOut ? (
-                          <span className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground">
-                            <AlertCircle className="h-3 w-3" /> Missing
-                          </span>
+                          <span className="flex items-center gap-1 px-2 py-1 bg-muted rounded text-xs text-muted-foreground"><AlertCircle className="h-3 w-3" /> Missing</span>
                         ) : (
-                          <span className="flex items-center gap-1 px-2 py-1 bg-success-muted rounded text-xs text-success">
-                            <CheckCircle2 className="h-3 w-3" /> Included
-                          </span>
+                          <span className="flex items-center gap-1 px-2 py-1 bg-success-muted rounded text-xs text-success"><CheckCircle2 className="h-3 w-3" /> Included</span>
                         )}
                       </div>
                     )}
 
                     {isEditing ? (
                       <div className="space-y-2 p-2 bg-background rounded-md border border-border shadow-sm">
-                        <Input 
-                          value={section.title}
-                          onChange={(e) => handleSectionTitleUpdate(section.id, e.target.value)}
-                          className="font-bold border-none px-2 text-lg h-auto focus-visible:ring-0 placeholder:text-muted-foreground/50"
-                          placeholder="Section Title"
-                        />
-                        <Textarea 
-                          value={section.content}
-                          onChange={(e) => handleSectionUpdate(section.id, e.target.value)}
-                          className="min-h-[120px] font-mono text-sm border-0 focus-visible:ring-0 resize-y p-2"
-                          placeholder="Enter details here..."
-                        />
+                        <Input value={section.title} onChange={(e) => handleSectionTitleUpdate(section.id, e.target.value)} className="font-bold border-none px-2 text-lg h-auto" />
+                        <Textarea value={section.content} onChange={(e) => handleSectionUpdate(section.id, e.target.value)} className="min-h-[120px] font-mono text-sm border-0 resize-y p-2" />
                         <div className="flex gap-2 justify-end border-t border-border pt-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSections(sections.filter(s => s.id !== section.id));
-                            }}
-                          >
-                            Remove
-                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7" onClick={(e) => { e.stopPropagation(); setSections(sections.filter(s => s.id !== section.id)); }}>Remove</Button>
                         </div>
                       </div>
                     ) : (
                       <>
-                        <h3 className={`font-semibold mb-3 ${section.isGreyedOut ? 'text-muted-foreground' : 'text-foreground'}`}>
-                          {section.title}
-                        </h3>
-                        
-                        <div 
-                          className={`
-                            prose prose-sm max-w-none whitespace-pre-wrap
-                            ${section.isGreyedOut ? 'text-muted-foreground italic' : 'text-foreground'}
-                          `}
-                        >
-                          {section.content}
-                        </div>
-
-                        {/* Feedback (only view mode) */}
+                        <h3 className={`font-semibold mb-3 ${section.isGreyedOut ? 'text-muted-foreground' : 'text-foreground'}`}>{section.title}</h3>
+                        <div className={`prose prose-sm max-w-none whitespace-pre-wrap ${section.isGreyedOut ? 'text-muted-foreground italic' : 'text-foreground'}`}>{section.content}</div>
                         {section.feedback && (
                           <div className="mt-4 p-3 bg-primary/5 border border-primary/20 rounded-lg animate-in fade-in slide-in-from-top-2">
-                            <p className="text-sm text-primary flex items-start gap-2">
-                              <Sparkles className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                              <span className="font-medium">AI Suggestion:</span> {section.feedback}
-                            </p>
+                            <p className="text-sm text-primary flex items-start gap-2"><Sparkles className="h-4 w-4 flex-shrink-0 mt-0.5" /><span className="font-medium">AI Suggestion:</span> {section.feedback}</p>
                           </div>
                         )}
                       </>
@@ -421,18 +296,7 @@ const CVEditor = () => {
                 ))}
 
                 {isEditing && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-dashed py-8 hover:bg-accent/50 text-muted-foreground"
-                    onClick={() => setSections([...sections, {
-                      id: Date.now().toString(),
-                      type: 'experience',
-                      title: 'New Section',
-                      content: 'Enter details here...',
-                      isCompleted: true,
-                      isGreyedOut: false
-                    }])}
-                  >
+                  <Button variant="outline" className="w-full border-dashed py-8 hover:bg-accent/50 text-muted-foreground" onClick={() => setSections([...sections, { id: Date.now().toString(), type: 'experience', title: 'New Section', content: 'Enter details here...', isCompleted: true, isGreyedOut: false }])}>
                     + Add Section
                   </Button>
                 )}
@@ -440,13 +304,10 @@ const CVEditor = () => {
             </div>
           </div>
 
-          {/* Right Panel - Feedback */}
           <div className="space-y-6">
-            {/* General Feedback */}
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm sticky top-6">
               <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                AI Analysis Report
+                <Sparkles className="h-4 w-4 text-primary" /> AI Analysis Report
               </h3>
               
               {generalFeedback.length > 0 ? (
@@ -458,40 +319,17 @@ const CVEditor = () => {
                     </div>
                   ))}
                   <Button className="w-full mt-4" asChild>
-                    <Link to="/roadmap">
-                      View Action Plan <ChevronLeft className="h-4 w-4 rotate-180 ml-2" />
-                    </Link>
+                    <Link to="/roadmap">View Action Plan <ChevronLeft className="h-4 w-4 rotate-180 ml-2" /></Link>
                   </Button>
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p className="mb-4">
-                    {isParsing ? 'Analyzing your structure...' : 'Run Deep Research to compare your CV against top performers and get tailored advice.'}
-                  </p>
+                  <p className="mb-4">Run Deep Research to compare your CV against top performers.</p>
                   <Button variant="outline" size="sm" onClick={handleDeepAnalysis} disabled={isAnalyzing || isParsing}>
                     {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Run Deep Research'}
                   </Button>
                 </div>
               )}
-            </div>
-
-            {/* Legend */}
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-semibold text-foreground mb-4">Legend</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-success" />
-                  <span className="text-sm text-muted-foreground">Included in CV</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full border border-dashed border-foreground/50" />
-                  <span className="text-sm text-muted-foreground">Gap (Missing from CV)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                  <span className="text-sm text-muted-foreground">AI Insight Available</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
