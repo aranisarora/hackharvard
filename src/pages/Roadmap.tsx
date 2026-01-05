@@ -59,16 +59,11 @@ const Roadmap = () => {
     }
     setUser(currentUser);
 
-    // Load existing roadmap or generate new one
+    // Load existing roadmap or stay empty
     const existingRoadmap = getUserRoadmap(currentUser.id);
     if (existingRoadmap && existingRoadmap.length > 0) {
       setTasks(existingRoadmap);
-      if (existingRoadmap.length > 0) {
-        setExpandedTasks(new Set([existingRoadmap[0].id]));
-      }
-    } else {
-      // Auto-generate if missing
-      handleGenerateRoadmap(currentUser);
+      setExpandedTasks(new Set([existingRoadmap[0].id]));
     }
   }, [navigate]);
 
@@ -83,7 +78,7 @@ const Roadmap = () => {
       
       // If no Target CV exists, we generate a roadmap without deep insights first
       if (!targetCV) {
-        toast.info("Tip: Run Deep Research in CV Editor for a more personalized roadmap.");
+        toast.info("For best results, analyze your CV in the CV Editor first.");
       }
 
       const generatedTasks = await generateRoadmap(currentUser, targetCV);
@@ -273,7 +268,7 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
             disabled={isGenerating}
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            {isGenerating ? 'Analyzing & Generating...' : 'Regenerate Plan'}
+            {isGenerating ? 'Analyzing & Generating...' : (tasks.length > 0 ? 'Regenerate Plan' : 'Generate Roadmap')}
           </Button>
         </div>
 
@@ -289,6 +284,19 @@ Provide helpful, specific advice about their career journey and tasks. Be encour
                 Our AI deep research model is analyzing successful {user.targetJob} profiles at {user.targetCompany} to build your custom path...
               </p>
             </div>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] text-center bg-card border border-border rounded-xl border-dashed">
+            <div className="p-4 bg-muted rounded-full mb-6">
+              <Route className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">No Roadmap Yet</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Ready to start? Generate a personalized roadmap based on your current profile and target job.
+            </p>
+            <Button onClick={() => handleGenerateRoadmap(user)} size="lg" variant="hero">
+              Generate My Roadmap
+            </Button>
           </div>
         ) : (
           <>

@@ -9,7 +9,6 @@ import {
   Route, 
   Target,
   Download,
-  Eye,
   ChevronLeft,
   User,
   LogOut,
@@ -20,14 +19,22 @@ import {
   Save,
   Loader2
 } from 'lucide-react';
-import { getCurrentUser, logout, saveTargetCV, getUserTargetCV, saveRoadmap } from '@/lib/storage';
+import { 
+  getCurrentUser, 
+  logout, 
+  saveTargetCV, 
+  getUserTargetCV, 
+  saveRoadmap, 
+  saveUserCV, 
+  getUserCV 
+} from '@/lib/storage';
 import { analyzeCV, generateRoadmap } from '@/lib/gemini';
 import { getTopEmployeeProfiles, formatProfilesForAnalysis } from '@/lib/coresignal';
 import { UserProfile, CVSection, TargetCV } from '@/types';
 import { toast } from 'sonner';
 
-// Default sections if none exist
-const defaultSections: CVSection[] = [
+// Default template if no CV exists
+const templateSections: CVSection[] = [
   {
     id: '1',
     type: 'experience',
@@ -57,8 +64,7 @@ const defaultSections: CVSection[] = [
 const CVEditor = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [sections, setSections] = useState<CVSection[]>(defaultSections);
-  const [showDelta, setShowDelta] = useState(false);
+  const [sections, setSections] = useState<CVSection[]>([]);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -72,11 +78,24 @@ const CVEditor = () => {
     }
     setUser(currentUser);
 
-    // Load saved TargetCV if exists
+    // Logic for loading initial data:
+    // 1. Check if there's a saved manual draft (most recent edits)
+    // 2. If not, check if there's a previous analysis result
+    // 3. If neither, use the template
+    const savedDraft = getUserCV(currentUser.id);
     const savedTargetCV = getUserTargetCV(currentUser.id);
-    if (savedTargetCV) {
+
+    if (savedDraft && savedDraft.length > 0) {
+      setSections(savedDraft);
+      // If we also have a target CV, load its feedback but keep draft content
+      if (savedTargetCV) {
+        setGeneralFeedback(savedTargetCV.generalFeedback);
+      }
+    } else if (savedTargetCV) {
       setSections(savedTargetCV.sections);
       setGeneralFeedback(savedTargetCV.generalFeedback);
+    } else {
+      setSections(templateSections);
     }
   }, [navigate]);
 
@@ -87,31 +106,43 @@ const CVEditor = () => {
 
   const getProgress = () => {
     const completed = sections.filter(s => s.isCompleted && !s.isGreyedOut).length;
-    // Calculate relative to total relevant sections
     return Math.round((completed / Math.max(1, sections.length)) * 100);
   };
 
   const handleSectionUpdate = (id: string, newContent: string) => {
-    setSections(sections.map(s => s.id === id ? { ...s, content: newContent } : s));
+    setSections(prev => prev.map(s => s.id === id ? { ...s, content: newContent } : s));
   };
 
   const handleSectionTitleUpdate = (id: string, newTitle: string) => {
-    setSections(sections.map(s => s.id === id ? { ...s, title: newTitle } : s));
+    setSections(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s));
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing && user) {
+      // User is saving changes
+      saveUserCV(user.id, sections);
+      toast.success("CV changes saved successfully.");
+    }
+    setIsEditing(!isEditing);
   };
 
   const handleDeepAnalysis = async () => {
     if (!user) return;
+    
+    // Auto-save before analysis
+    saveUserCV(user.id, sections);
+    
     setIsAnalyzing(true);
-    toast.info("Starting Deep Research analysis...");
+    toast.info("Starting Deep Research analysis (Model: deep-research-pro-preview-12-2025)...");
 
     try {
-      // 1. Get Context (Simulated or Real Coresignal data)
+      // 1. Get Context 
       const profiles = await getTopEmployeeProfiles(user.targetJob, user.targetCompany);
       const profilesText = formatProfilesForAnalysis(profiles);
       
       // 2. Prepare CV text
       const cvText = sections
-        .filter(s => !s.isGreyedOut) // Only analyze user's actual content
+        .filter(s => !s.isGreyedOut)
         .map(s => `${s.title}:\n${s.content}`)
         .join('\n\n');
 
@@ -124,21 +155,22 @@ const CVEditor = () => {
         profilesText
       );
 
-      // 4. Update State
+      // 4. Update State with Analysis Result
       setSections(analysisResult.sections);
       setGeneralFeedback(analysisResult.generalFeedback);
       
-      // 5. Save to Storage
+      // 5. Save Analysis Result
       saveTargetCV(user.id, analysisResult);
+      // Also save as current draft so they don't lose the "suggested" version
+      saveUserCV(user.id, analysisResult.sections);
 
-      // 6. Auto-generate Roadmap based on new analysis
+      // 6. Auto-generate Roadmap
       toast.info("Updating your career roadmap...");
       const newRoadmap = await generateRoadmap(user, analysisResult);
       saveRoadmap(user.id, newRoadmap);
 
-      toast.success("Deep Research Complete! Your roadmap has been updated.");
-      setShowDelta(true);
-      setIsEditing(false); // Exit edit mode to show feedback nicely
+      toast.success("Deep Research Complete! Roadmap updated.");
+      setIsEditing(false);
 
     } catch (error) {
       console.error(error);
@@ -226,7 +258,7 @@ const CVEditor = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={handleToggleEdit}
               disabled={isAnalyzing}
             >
               {isEditing ? <Save className="h-4 w-4 mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
@@ -258,7 +290,7 @@ const CVEditor = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* CV Canvas */}
           <div className="lg:col-span-2">
-            <div className="canvas-paper p-8 min-h-[800px]">
+            <div className="canvas-paper p-8 min-h-[800px] shadow-sm">
               {/* Header */}
               <div className="text-center mb-8 pb-6 border-b border-border">
                 <h2 className="text-2xl font-bold text-foreground mb-1">
@@ -275,11 +307,11 @@ const CVEditor = () => {
                   <div
                     key={section.id}
                     className={`
-                      relative p-4 rounded-lg transition-all duration-200
+                      relative p-4 rounded-lg transition-all duration-200 group
                       ${activeSection === section.id ? 'ring-2 ring-primary' : ''}
                       ${section.isGreyedOut && !isEditing ? 'bg-greyed-bg border border-dashed border-border' : 'hover:bg-accent/50'}
                     `}
-                    onClick={() => setActiveSection(section.id)}
+                    onClick={() => !isEditing && setActiveSection(section.id)}
                   >
                     {/* Status badge (only view mode) */}
                     {!isEditing && (
@@ -297,25 +329,30 @@ const CVEditor = () => {
                     )}
 
                     {isEditing ? (
-                      <div className="space-y-2">
+                      <div className="space-y-2 p-2 bg-background rounded-md border border-border shadow-sm">
                         <Input 
                           value={section.title}
                           onChange={(e) => handleSectionTitleUpdate(section.id, e.target.value)}
-                          className="font-bold border-none px-0 text-lg h-auto focus-visible:ring-0"
+                          className="font-bold border-none px-2 text-lg h-auto focus-visible:ring-0 placeholder:text-muted-foreground/50"
+                          placeholder="Section Title"
                         />
                         <Textarea 
                           value={section.content}
                           onChange={(e) => handleSectionUpdate(section.id, e.target.value)}
-                          className="min-h-[100px] font-mono text-sm"
+                          className="min-h-[120px] font-mono text-sm border-0 focus-visible:ring-0 resize-y p-2"
+                          placeholder="Enter details here..."
                         />
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-2 justify-end border-t border-border pt-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setSections(sections.filter(s => s.id !== section.id))}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSections(sections.filter(s => s.id !== section.id));
+                            }}
                           >
-                            Remove Section
+                            Remove
                           </Button>
                         </div>
                       </div>
@@ -351,7 +388,7 @@ const CVEditor = () => {
                 {isEditing && (
                   <Button 
                     variant="outline" 
-                    className="w-full border-dashed"
+                    className="w-full border-dashed py-8 hover:bg-accent/50 text-muted-foreground"
                     onClick={() => setSections([...sections, {
                       id: Date.now().toString(),
                       type: 'experience',

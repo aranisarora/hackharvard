@@ -138,9 +138,9 @@ RETURN JSON ONLY.
   };
 
   try {
-    // Using gemini-3-pro-preview for complex reasoning and deep analysis
+    // Using deep-research-pro-preview-12-2025 as requested
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'deep-research-pro-preview-12-2025',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -232,7 +232,7 @@ export const generateRoadmap = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'deep-research-pro-preview-12-2025',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
