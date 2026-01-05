@@ -63,9 +63,10 @@ const Dashboard = () => {
   const getDashboardCategories = () => {
     const categoriesConfig = [
       { id: 'skills', title: 'Skills', icon: Briefcase, color: 'text-primary', bgColor: 'bg-primary/10' },
-      { id: 'experience', title: 'Experience', icon: FileText, color: 'text-success', bgColor: 'bg-success/10' },
+      { id: 'projects', title: 'Projects', icon: Target, color: 'text-success', bgColor: 'bg-success/10' },
+      { id: 'experience', title: 'Experience', icon: FileText, color: 'text-secondary-foreground', bgColor: 'bg-secondary' },
       { id: 'certifications', title: 'Certifications', icon: GraduationCap, color: 'text-warning', bgColor: 'bg-warning/10' },
-      { id: 'cv-feedback', title: 'CV Polish', icon: Award, color: 'text-secondary-foreground', bgColor: 'bg-secondary' },
+      { id: 'cv-feedback', title: 'CV Polish', icon: Award, color: 'text-destructive', bgColor: 'bg-destructive/10' },
     ];
 
     return categoriesConfig.map(cat => {

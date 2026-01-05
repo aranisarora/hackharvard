@@ -138,14 +138,13 @@ RETURN JSON ONLY.
   };
 
   try {
-    // Using deep-research-pro-preview-12-2025 as requested
     const response = await ai.models.generateContent({
-      model: 'deep-research-pro-preview-12-2025',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
         responseSchema: schema,
-        thinkingConfig: { thinkingBudget: 2048 }, // Allow for reasoning on gaps
+        thinkingConfig: { thinkingBudget: 2048 },
       }
     });
     
@@ -232,7 +231,7 @@ export const generateRoadmap = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'deep-research-pro-preview-12-2025',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',

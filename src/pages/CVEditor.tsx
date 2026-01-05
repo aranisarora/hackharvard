@@ -26,7 +26,8 @@ import {
   getUserTargetCV, 
   saveRoadmap, 
   saveUserCV, 
-  getUserCV 
+  getUserCV,
+  generateId 
 } from '@/lib/storage';
 import { analyzeCV, generateRoadmap } from '@/lib/gemini';
 import { getTopEmployeeProfiles, formatProfilesForAnalysis } from '@/lib/coresignal';
@@ -133,7 +134,7 @@ const CVEditor = () => {
     saveUserCV(user.id, sections);
     
     setIsAnalyzing(true);
-    toast.info("Starting Deep Research analysis (Model: deep-research-pro-preview-12-2025)...");
+    toast.info("Starting Deep Research analysis...");
 
     try {
       // 1. Get Context 
@@ -155,18 +156,25 @@ const CVEditor = () => {
         profilesText
       );
 
+      // 3.5 Ensure unique IDs for new sections from AI to prevent key conflicts
+      const processedSections = analysisResult.sections.map(s => ({
+        ...s,
+        id: generateId()
+      }));
+      const processedResult = { ...analysisResult, sections: processedSections };
+
       // 4. Update State with Analysis Result
-      setSections(analysisResult.sections);
-      setGeneralFeedback(analysisResult.generalFeedback);
+      setSections(processedSections);
+      setGeneralFeedback(processedResult.generalFeedback);
       
       // 5. Save Analysis Result
-      saveTargetCV(user.id, analysisResult);
+      saveTargetCV(user.id, processedResult);
       // Also save as current draft so they don't lose the "suggested" version
-      saveUserCV(user.id, analysisResult.sections);
+      saveUserCV(user.id, processedSections);
 
       // 6. Auto-generate Roadmap
       toast.info("Updating your career roadmap...");
-      const newRoadmap = await generateRoadmap(user, analysisResult);
+      const newRoadmap = await generateRoadmap(user, processedResult);
       saveRoadmap(user.id, newRoadmap);
 
       toast.success("Deep Research Complete! Roadmap updated.");
