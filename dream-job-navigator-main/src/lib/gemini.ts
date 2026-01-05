@@ -9,14 +9,16 @@ interface GeminiMessage {
   parts: { text: string }[];
 }
 
+// Helper to clean JSON string if it comes wrapped in markdown
+const cleanJsonString = (text: string): string => {
+  if (!text) return "[]";
+  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+};
+
 export const callGemini = async (
   prompt: string,
-  useDeepResearch: boolean = false
+  model: string = 'gemini-3-flash-preview'
 ): Promise<string> => {
-  const model = useDeepResearch 
-    ? 'gemini-3-pro-preview' 
-    : 'gemini-3-flash-preview';
-  
   try {
     const response = await ai.models.generateContent({
       model: model,
@@ -40,12 +42,8 @@ export const callGeminiWithContext = async (
   systemPrompt: string,
   userMessage: string,
   conversationHistory: GeminiMessage[] = [],
-  useDeepResearch: boolean = false
+  model: string = 'gemini-3-flash-preview'
 ): Promise<string> => {
-  const model = useDeepResearch 
-    ? 'gemini-3-pro-preview' 
-    : 'gemini-3-flash-preview';
-  
   // Map conversation history to SDK content format
   const historyContents = conversationHistory.map(msg => ({
     role: msg.role,
@@ -158,8 +156,9 @@ Please provide:
   };
 
   try {
+    // Using gemini-3-pro-preview for complex analysis
     const response = await ai.models.generateContent({
-      model: 'deep-research-pro-preview-12-2025',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -297,9 +296,8 @@ export const generateRoadmap = async (
       }
     });
     
-    const jsonString = response.text;
-    if (!jsonString) return [];
-    return JSON.parse(jsonString);
+    const jsonString = response.text || "[]";
+    return JSON.parse(cleanJsonString(jsonString));
   } catch (error) {
     console.error("Failed to generate roadmap:", error);
     return [];

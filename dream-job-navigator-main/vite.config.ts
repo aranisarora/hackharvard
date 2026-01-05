@@ -22,7 +22,8 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       // Polyfill process.env for the Google GenAI SDK usage in browser
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
+      // Default to empty string to prevent "process is not defined" error if key is missing
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
     }
   };
 });
