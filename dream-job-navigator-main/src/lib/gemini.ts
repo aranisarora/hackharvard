@@ -2,6 +2,7 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { UserProfile, RoadmapTask, TargetCV } from '@/types';
 
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+// This is replaced by Vite at build time via the define config.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 interface GeminiMessage {
@@ -9,9 +10,10 @@ interface GeminiMessage {
   parts: { text: string }[];
 }
 
-// Helper to clean JSON string if it comes wrapped in markdown
+// Helper to clean JSON string if it comes wrapped in markdown code blocks
 const cleanJsonString = (text: string): string => {
-  return text.replace(/```json\n?|\n?```/g, '').trim();
+  if (!text) return "[]";
+  return text.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
 };
 
 export const callGemini = async (
@@ -43,7 +45,8 @@ export const callGeminiWithContext = async (
   conversationHistory: GeminiMessage[] = [],
   model: string = 'gemini-3-flash-preview'
 ): Promise<string> => {
-  // Map conversation history to SDK content format
+  // Map internal message format to SDK format
+  // Note: SDK expects { role, parts: [{ text }] }
   const historyContents = conversationHistory.map(msg => ({
     role: msg.role,
     parts: msg.parts
@@ -155,7 +158,6 @@ Please provide:
   };
 
   try {
-    // Using deep-research model for the complex comparative analysis task
     const response = await ai.models.generateContent({
       model: 'deep-research-pro-preview-12-2025',
       contents: prompt,
