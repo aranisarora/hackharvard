@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     });
 
     // Return the streaming response compatible with useChat
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("Error in dashboard chatbot route:", error);
     return new Response(
