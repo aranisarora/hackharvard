@@ -45,6 +45,7 @@ type CoreSignalProfile = {
   created_at: string;
   updated_at: string;
   linkedin_url?: string | null;
+  profile_picture?: string | null;
 };
 
 function normalizeInput(input?: string | null, fallback = "") {
@@ -110,6 +111,27 @@ function transformEmployeeData(employeeData: any): CoreSignalProfile {
     typeof lang === "string" ? lang : lang.language || ""
   ).filter(Boolean);
 
+  // Extract LinkedIn URL - check multiple possible field names
+  const linkedinUrl = employeeData.linkedin_url || 
+                     employeeData.profile_url || 
+                     employeeData.linkedin_profile_url ||
+                     employeeData.url ||
+                     (employeeData.profiles && employeeData.profiles[0]?.url) ||
+                     null;
+
+  // Extract profile picture - check multiple possible field names
+  const profilePicture = employeeData.profile_image_url || 
+                        employeeData.profile_picture_url || 
+                        employeeData.image_url || 
+                        employeeData.photo_url || 
+                        employeeData.avatar_url ||
+                        employeeData.profile_image ||
+                        employeeData.picture_url ||
+                        employeeData.profile_picture ||
+                        (employeeData.images && employeeData.images.profile_picture) ||
+                        (employeeData.photo && employeeData.photo.url) ||
+                        null;
+
   return {
     id: employeeData.id || 0,
     source: "linkedin",
@@ -127,7 +149,8 @@ function transformEmployeeData(employeeData: any): CoreSignalProfile {
     certifications: certifications && certifications.length > 0 ? certifications : null,
     created_at: employeeData.created_at || new Date().toISOString(),
     updated_at: employeeData.updated_at || employeeData.changed_at || new Date().toISOString(),
-    linkedin_url: employeeData.linkedin_url || null,
+    linkedin_url: linkedinUrl,
+    profile_picture: profilePicture,
   };
 }
 
@@ -280,6 +303,33 @@ export async function POST(request: Request) {
         }
 
         const employeeData = await collectResponse.json();
+        
+        // Debug: Log available fields for profile picture and LinkedIn
+        console.log(`[CoreSignal] Employee ${employeeId} - Full data structure:`, JSON.stringify(employeeData, null, 2));
+        console.log(`[CoreSignal] Employee ${employeeId} - All keys:`, Object.keys(employeeData));
+        
+        // Check for LinkedIn URL in various possible locations
+        const linkedinFields = {
+          linkedin_url: employeeData.linkedin_url,
+          profile_url: employeeData.profile_url,
+          linkedin_profile_url: employeeData.linkedin_profile_url,
+          url: employeeData.url,
+        };
+        console.log(`[CoreSignal] Employee ${employeeId} - LinkedIn URL fields:`, linkedinFields);
+        
+        // Check for profile picture in various possible locations
+        const pictureFields = {
+          profile_image_url: employeeData.profile_image_url,
+          profile_picture_url: employeeData.profile_picture_url,
+          image_url: employeeData.image_url,
+          photo_url: employeeData.photo_url,
+          avatar_url: employeeData.avatar_url,
+          profile_image: employeeData.profile_image,
+          picture_url: employeeData.picture_url,
+          profile_picture: employeeData.profile_picture,
+        };
+        console.log(`[CoreSignal] Employee ${employeeId} - Profile picture fields:`, pictureFields);
+        
         return transformEmployeeData(employeeData);
       } catch (error) {
         console.error(`[CoreSignal] Error collecting employee ${employeeId}:`, error);

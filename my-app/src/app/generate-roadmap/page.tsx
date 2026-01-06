@@ -50,7 +50,6 @@ export default function GenerateRoadmapPage() {
   const [roadmapData, setRoadmapData] = useState<any>(null);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
   const steps: GenerationStep[] = [
     {
@@ -85,27 +84,17 @@ export default function GenerateRoadmapPage() {
     },
   ];
 
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log(logMessage);
-    setDebugLogs((prev) => [...prev.slice(-49), logMessage]); // Keep last 50 logs
-  };
-
   // Main orchestration function
   useEffect(() => {
     async function orchestrateProcess() {
       try {
-        addDebugLog("🚀 Starting roadmap generation process");
         setCurrentProcessStep("loading");
 
         // Step 1: Extract target role
-        addDebugLog("📋 Step 1: Extracting target role from onboarding data");
         setCurrentProcessStep("extract");
         setIsLoadingData(true);
 
         const response = await getOnboardingData();
-        addDebugLog(`✅ Onboarding data fetched: ${response.data ? "Success" : "No data"}`);
         
         if (!response.data) {
           throw new Error("No onboarding data found");
@@ -118,46 +107,26 @@ export default function GenerateRoadmapPage() {
         
         setActualJobTitle(jobTitle);
         setActualCompany(company);
-        addDebugLog(`📍 Target: ${jobTitle} at ${company}`);
         setIsLoadingData(false);
 
         // Step 2: Find relevant CVs
-        addDebugLog("🔍 Step 2: Finding relevant CVs from CoreSignal");
         setCurrentProcessStep("find");
 
         const coresignalResponse = await getCoreSignalResumes(jobTitle, company);
         
-        // Debug CoreSignal response
-        console.log("=== CORESIGNAL RESPONSE DEBUG ===");
-        console.log("Full response:", coresignalResponse);
-        console.log("Profiles count:", coresignalResponse.profiles?.length || 0);
-        console.log("Filter:", coresignalResponse.filter);
-        console.log("Experience title:", coresignalResponse.experience_title);
-        console.log("Experience company:", coresignalResponse.experience_company_name);
-        
+        // Debug: Log profile data to see what we're getting
+        console.log("[Frontend] CoreSignal response:", coresignalResponse);
         if (coresignalResponse.profiles && coresignalResponse.profiles.length > 0) {
-          console.log("=== RESUME DETAILS ===");
-          coresignalResponse.profiles.forEach((profile: any, idx: number) => {
-            console.log(`\nResume ${idx + 1}:`);
-            console.log("  ID:", profile.id);
-            console.log("  Name:", profile.name);
-            console.log("  Headline:", profile.headline);
-            console.log("  Location:", profile.location);
-            console.log("  Experience count:", profile.experience?.length || 0);
-            console.log("  Education count:", profile.education?.length || 0);
-            console.log("  Skills count:", Array.isArray(profile.skills) ? profile.skills.length : 0);
-            console.log("  Languages:", profile.languages);
-            console.log("  Certifications count:", profile.certifications?.length || 0);
-            console.log("  LinkedIn URL:", profile.linkedin_url);
+          console.log("[Frontend] First profile data:", {
+            id: coresignalResponse.profiles[0].id,
+            name: coresignalResponse.profiles[0].name,
+            linkedin_url: coresignalResponse.profiles[0].linkedin_url,
+            profile_picture: coresignalResponse.profiles[0].profile_picture,
           });
-          console.log("=== END RESUME DEBUG ===");
         }
-        
-        addDebugLog(`✅ CoreSignal response: ${coresignalResponse.profiles?.length || 0} profiles found`);
         
         if (coresignalResponse.profiles && coresignalResponse.profiles.length > 0) {
           // Display CVs immediately with lazy loading simulation
-          addDebugLog("📄 Displaying CVs with lazy loading");
           const profiles = coresignalResponse.profiles;
           
           // Simulate lazy loading - add resumes one by one
@@ -170,23 +139,16 @@ export default function GenerateRoadmapPage() {
               newSet.delete(profiles[i].id);
               return newSet;
             });
-            addDebugLog(`✅ Resume ${i + 1}/${profiles.length} loaded: ${profiles[i].name || "Unknown"} (ID: ${profiles[i].id})`);
           }
-          
-          addDebugLog(`✅ All ${profiles.length} resumes displayed`);
         } else {
-          addDebugLog("⚠️ No resumes found");
-          console.warn("No profiles in CoreSignal response:", coresignalResponse);
           setResumes([]);
         }
 
         // Step 3: Analyze qualifications (prepare data for LLM)
-        addDebugLog("🧠 Step 3: Preparing data for LLM analysis");
         setCurrentProcessStep("analyze");
         await new Promise((resolve) => setTimeout(resolve, 500)); // Brief pause
 
         // Step 4 & 5: Generate target CV and roadmap
-        addDebugLog("✨ Step 4-5: Generating target CV and roadmap with LLM");
         setCurrentProcessStep("target");
         setIsGeneratingRoadmap(true);
         setGenerationError(null);
@@ -200,17 +162,6 @@ export default function GenerateRoadmapPage() {
             content: msg.content,
           }));
 
-        addDebugLog(`📨 Sending ${formattedMessages.length} messages to LLM`);
-        addDebugLog(`📊 Including ${coresignalResponse.profiles?.length || 0} resume references`);
-        
-        // Debug what we're sending to the API
-        console.log("=== SENDING TO ROADMAP API ===");
-        console.log("Messages count:", formattedMessages.length);
-        console.log("Onboarding data keys:", Object.keys(response.data || {}));
-        console.log("Resumes count:", coresignalResponse.profiles?.length || 0);
-        console.log("Resume IDs:", coresignalResponse.profiles?.map((p: any) => p.id) || []);
-        console.log("=== END API REQUEST DEBUG ===");
-
         // Update step to roadmap generation
         setCurrentProcessStep("roadmap");
 
@@ -219,28 +170,12 @@ export default function GenerateRoadmapPage() {
           response.data,
           coresignalResponse.profiles || []
         );
-        
-        // Debug roadmap result
-        console.log("=== ROADMAP GENERATION RESULT ===");
-        console.log("Success:", roadmapResult.success);
-        console.log("Data keys:", roadmapResult.data ? Object.keys(roadmapResult.data) : "No data");
-        if (roadmapResult.data) {
-          console.log("Initial CV length:", roadmapResult.data.initialCV?.length || 0);
-          console.log("Target CV length:", roadmapResult.data.targetCV?.length || 0);
-          console.log("Roadmap tasks count:", roadmapResult.data.roadmap?.tasks?.length || 0);
-          console.log("Dashboard categories count:", roadmapResult.data.dashboard?.categories?.length || 0);
-        }
-        console.log("=== END ROADMAP RESULT DEBUG ===");
-
-        addDebugLog("✅ Roadmap generation completed");
-        console.log("Roadmap result:", roadmapResult);
 
         if (!roadmapResult.success || !roadmapResult.data) {
           throw new Error("Failed to generate roadmap - no data returned");
         }
 
         setRoadmapData(roadmapResult.data);
-        addDebugLog("💾 Saving roadmap data to backend");
 
         // Save all data
         await Promise.all([
@@ -249,15 +184,12 @@ export default function GenerateRoadmapPage() {
           saveDashboardData(roadmapResult.data.dashboard),
         ]);
 
-        addDebugLog("✅ All data saved successfully");
         setCurrentProcessStep("complete");
         setIsGeneratingRoadmap(false);
-        addDebugLog("🎉 Roadmap generation process complete!");
 
       } catch (error) {
         console.error("Error in orchestration:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        addDebugLog(`❌ Error: ${errorMessage}`);
         setGenerationError(errorMessage);
         setIsGeneratingRoadmap(false);
         setIsLoadingData(false);
@@ -317,7 +249,6 @@ export default function GenerateRoadmapPage() {
   };
 
   const handleGoToDashboard = () => {
-    addDebugLog("🚪 Navigating to dashboard");
     router.push("/dashboard");
   };
 
@@ -344,84 +275,6 @@ export default function GenerateRoadmapPage() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        {/* Debug Panel */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mb-8 space-y-4">
-            <Card className="p-4 bg-muted/30 border border-primary/20">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-foreground">🐛 Debug Logs</h3>
-                <span className="text-xs text-muted-foreground">{debugLogs.length} logs</span>
-              </div>
-              <div className="max-h-32 overflow-y-auto space-y-1 text-xs font-mono">
-                {debugLogs.slice(-10).map((log, idx) => (
-                  <div key={idx} className="text-muted-foreground">{log}</div>
-                ))}
-              </div>
-            </Card>
-            
-            {/* Resume Results Debug Panel */}
-            {resumes.length > 0 && (
-              <Card className="p-4 bg-blue-500/10 border border-blue-500/20">
-                <h3 className="text-sm font-semibold text-foreground mb-3">📊 Resume Results Debug</h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <strong className="text-foreground">Total Resumes Found:</strong>{" "}
-                    <span className="text-muted-foreground">{resumes.length}</span>
-                  </div>
-                  <div>
-                    <strong className="text-foreground">Resume IDs:</strong>{" "}
-                    <span className="text-muted-foreground font-mono">
-                      {resumes.map((r: any) => r.id).join(", ")}
-                    </span>
-                  </div>
-                  <div>
-                    <strong className="text-foreground">Resume Names:</strong>
-                    <ul className="list-disc list-inside ml-2 mt-1 space-y-1">
-                      {resumes.map((r: any, idx: number) => (
-                        <li key={idx} className="text-muted-foreground">
-                          {r.name || "Unknown"} (ID: {r.id})
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <strong className="text-foreground">Experience Summary:</strong>
-                    <div className="mt-1 space-y-1">
-                      {resumes.map((r: any, idx: number) => (
-                        <div key={idx} className="text-muted-foreground pl-2">
-                          {r.name}: {r.experience?.length || 0} experience(s)
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <strong className="text-foreground">Skills Summary:</strong>
-                    <div className="mt-1 space-y-1">
-                      {resumes.map((r: any, idx: number) => {
-                        const skillsCount = Array.isArray(r.skills) ? r.skills.length : 0;
-                        const skillsList = Array.isArray(r.skills) 
-                          ? r.skills.slice(0, 5).map((s: any) => typeof s === "string" ? s : s.name).join(", ")
-                          : "N/A";
-                        return (
-                          <div key={idx} className="text-muted-foreground pl-2">
-                            {r.name}: {skillsCount} skills ({skillsList}{skillsCount > 5 ? "..." : ""})
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="mt-3 p-2 bg-background/50 rounded text-xs">
-                    <strong className="text-foreground">Note:</strong>{" "}
-                    <span className="text-muted-foreground">
-                      Check browser console for detailed resume data structure
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
-        )}
-
         {/* Completion Button */}
         {currentProcessStep === "complete" && roadmapData && (
           <Card className="mb-8 p-6 bg-primary/10 border-primary/20">
@@ -585,6 +438,19 @@ export default function GenerateRoadmapPage() {
                     <div className="flex gap-6 pb-4" style={{ width: "max-content" }}>
                       {resumes.map((profile, index) => {
                         const isLoading = loadingResumeIds.has(profile.id);
+                        
+                        // Debug: Log profile data for each resume
+                        if (index === 0) {
+                          console.log("[Frontend] Rendering profile:", {
+                            id: profile.id,
+                            name: profile.name,
+                            linkedin_url: profile.linkedin_url,
+                            profile_picture: profile.profile_picture,
+                            hasLinkedIn: !!profile.linkedin_url,
+                            hasPicture: !!profile.profile_picture,
+                          });
+                        }
+                        
                         return (
                           <div
                             key={`resume-${profile.id}-${index}`}
@@ -614,28 +480,79 @@ export default function GenerateRoadmapPage() {
                                 {/* CV Header */}
                                 <div className="space-y-4 mb-6">
                                   <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
-                                      {profile.name
-                                        ? profile.name
-                                            .split(" ")
-                                            .map((n: string) => n[0])
-                                            .join("")
-                                            .toUpperCase()
-                                        : "?"}
+                                    <div className="relative w-16 h-16 flex-shrink-0">
+                                      {profile.profile_picture ? (
+                                        <>
+                                          <img
+                                            src={profile.profile_picture}
+                                            alt={profile.name || "Profile"}
+                                            className="w-16 h-16 rounded-full object-cover border-2 border-primary/20"
+                                            onError={(e) => {
+                                              // Hide image and show fallback
+                                              const target = e.target as HTMLImageElement;
+                                              target.style.display = "none";
+                                              const fallback = target.nextElementSibling as HTMLElement;
+                                              if (fallback) {
+                                                fallback.style.display = "flex";
+                                              }
+                                            }}
+                                          />
+                                          <div className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center text-primary font-semibold text-lg hidden absolute inset-0">
+                                            {profile.name
+                                              ? profile.name
+                                                  .split(" ")
+                                                  .map((n: string) => n[0])
+                                                  .join("")
+                                                  .toUpperCase()
+                                              : "?"}
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
+                                          {profile.name
+                                            ? profile.name
+                                                .split(" ")
+                                                .map((n: string) => n[0])
+                                                .join("")
+                                                .toUpperCase()
+                                            : "?"}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex-1">
-                                      <h3 className="font-semibold text-lg text-foreground mb-1">
-                                        {profile.name || "Unknown"}
-                                      </h3>
-                                      <p className="text-sm text-muted-foreground mb-1">
-                                        {profile.headline || "No headline"}
-                                      </p>
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        {profile.location && (
-                                          <div className="flex items-center gap-1">
-                                            <MapPin className="h-3 w-3" />
-                                            <span>{profile.location}</span>
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1">
+                                          <h3 className="font-semibold text-lg text-foreground mb-1">
+                                            {profile.name || "Unknown"}
+                                          </h3>
+                                          <p className="text-sm text-muted-foreground mb-1">
+                                            {profile.headline || "No headline"}
+                                          </p>
+                                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            {profile.location && (
+                                              <div className="flex items-center gap-1">
+                                                <MapPin className="h-3 w-3" />
+                                                <span>{profile.location}</span>
+                                              </div>
+                                            )}
                                           </div>
+                                        </div>
+                                        {profile.linkedin_url && (
+                                          <a
+                                            href={profile.linkedin_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex-shrink-0 p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"
+                                            title="View LinkedIn Profile"
+                                          >
+                                            <svg
+                                              className="w-5 h-5 text-primary"
+                                              fill="currentColor"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                            </svg>
+                                          </a>
                                         )}
                                       </div>
                                     </div>
@@ -779,8 +696,15 @@ export default function GenerateRoadmapPage() {
                                         href={profile.linkedin_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-primary hover:underline"
+                                        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
                                       >
+                                        <svg
+                                          className="w-3.5 h-3.5"
+                                          fill="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                        </svg>
                                         View LinkedIn
                                       </a>
                                     )}

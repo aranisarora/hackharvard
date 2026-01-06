@@ -18,7 +18,7 @@
     },
     {
       "role": "user",
-      "content": "United States"
+      "content": "Asia"
     },
     {
       "role": "assistant",
@@ -26,7 +26,7 @@
     },
     {
       "role": "user",
-      "content": "Software Engineer"
+      "content": "Product Manager"
     },
     {
       "role": "assistant",
@@ -34,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "Google"
+      "content": "google"
     },
     {
       "role": "assistant",
@@ -42,7 +42,7 @@
     },
     {
       "role": "user",
-      "content": "$50k-$80k"
+      "content": "$80k-$120k"
     },
     {
       "role": "assistant",
@@ -66,35 +66,35 @@
     },
     {
       "role": "user",
-      "content": "Here is the content of my uploaded CV/Resume:\n\nVennela Jonnala \r\nvjonnala@college.harvard.edu • (510) 896-0870 • LinkedIn \r\n \r\nEDUCATION \r\nHarvard College                             Cambridge, Massachusetts \r\nA.B., Computer Science & Economics                          Class of 2027 \r\nRelevant Coursework: Operating Systems, Advanced Data Structures & Algorithms, Artificial and Natural \r\nIntelligence, Statistics and Probability, Quantum Learning Theory, Compositionality of AI, Linear Algebra & \r\nVector Calculus, Functional Programming \r\nActivities: Harvard Ventures (Co-Director of VentureWorks Accelerator), Prod Cohort 3.0 (Member), Charles \r\nRiver Economics Labs (Quantitative Research Analyst) \r\n \r\nTECHNICAL SKILLS \r\nC++, Python, AWS (EC2, S3, CloudFormation), OCaml, TensorFlow, PyTorch, Java, React, Typescript, SQL / Postgres, \r\nJavaScript/HTML/CSS, Flyte, Airflow, Startup management / venture capital, Fullstack Web/App Development \r\n \r\nEXPERIENCE \r\nAmazon – Artificial General Intelligence (AGI) Org – Alexa Web Eureka   May–Aug 2024, May–Aug 2025 \r\nSoftware Development Engineering Intern                       Sunnyvale, CA \r\n● \r\nWorked on internal information retrieval infrastructure used by Alexa and Amazon LLMs (now integrated into AWS) \r\n● \r\nEngineered high-performance testing pipeline in Rust and Python on AWS to test and deploy large-scale search index \r\nmodels  \r\no Streamlined index generation, index deployments, and model evaluations \r\no Improved experimental velocity by 5x \r\n● \r\nIntroduced and productionalized Eureka’s third vertical which matches real web queries to similar declassified queries \r\no Enhanced Eureka’s search quality for millions of users, enables safe-traffic handling for Amazon LLMs \r\n● \r\nAmazon Future Engineer $40,000 Scholarship 2023 Recipient, spoke for SheBuilds Podcast hosted by AWS \r\nHarvard Ventures – Co-President                                  January 2025 – Present \r\nCambridge, MA                                          \r\n● \r\nLed Harvard’s largest student-run entrepreneurship club, connecting 500+ student founders across Harvard, MIT, and \r\nNortheastern \r\n● \r\nLed VentureWorks 2025 incubator – cohort of Harvard’s 8 best startups, over 50% of which raised >$1 million during or \r\nsince the incubator \r\no Mentored startup teams and organized weekly workshops, dinners, and networking events \r\nCharles River Economics Lab – Quantitative Research Analyst          September 2024 – Present \r\nCambridge, MA \r\n● \r\nDeveloped in-house unemployment forecasting model for Mass Department of Economic Research \r\n● \r\nEngineered scalable data processing workflows for large economic datasets (federal data, SEC filings, Google Trends) \r\n● \r\nDesigned and optimized Python workflows for ARIMA and OLS forecasting, automating ingestion of large economic \r\ndatasets \r\n● \r\nImplemented sentiment-analysis system for 10-Q reports using NLP techniques \r\n \r\nGeneral Catalyst VC Firm – Venture Fellow                          November 2023 – June 2025 \r\nCambridge, MA \r\n● \r\nSourced early-stage student-led startups for grants and pre-seed/seed investments \r\n● \r\nGrew internal founder database using web scraping / Python  \r\n● \r\nConducted due diligence on sourced deals, oversaw through deal pipeline \r\n● \r\nGC’s point-of-contact and advisor for early-stage startups in portfolio \r\n \r\nRUBI Financial Inc.  – Cofounder + Co-CEO                November 2023 – May 2024 \r\nCambridge, MA \r\n● \r\nSold B2B financial literacy software that legally fulfills financial literacy obligations of credit unions + banks \r\n● \r\nRaised 20K, deployed to two credit unions, $150K+ in LOIs, 1500+ user sign-ups, marketing partnership with $6B \r\ncompany ELF Beauty \r\n● \r\nProd Cohort 3.0 member – cohort of the top 50 U.S. college startups & #1 feeder to YC \r\n \r\n \r\n \r\n \r\n----------------Page (0) Break----------------\r\n"
+      "content": "Here is the content of my uploaded CV/Resume:\n\n \r\nAkshaj \r\nGoel \r\n \r\n \r\nAkshaj Goel \r\nAdarsh Palm Retreat, Bellandur \r\nBangalore, Karnataka \r\n8861302642 \r\ngoelakshaj@gmail.com \r\nᅳ\r\n \r\nEducation \r\n \r\nIGCSE(9th-10th) \r\nSubject    10th Boards    9th Internals \r\nExt. Math.        A*(100)        \r\nChemistry         A*(97) \r\nBiology           A*(97) \r\nPhysic           A*(96) \r\nComp. Sc.         A*(94) \r\nEconomics         A*(94) \r\nEng. Lang.         A*(92) \r\nSpanish           A*(91) \r\nEng. Lit.            A(85) \r\nAdd. Math                    A*(100) \r\n \r\nSAT:  \r\nAP Computer Science A: 5/5 \r\n \r\n----------------Page (0) Break----------------\r\nᅳ\r\n \r\nProjects \r\n \r\nTraffic Modelling Literature Review / Co-author \r\nJuly 2025 - PRESENT \r\nCurrently working on a literature review with a friend: \r\n-  Using fluid physics to understand traffic flow \r\n-  Understanding and breaking down various traffic flow models \r\n-  Exploring how AI can be used to improve these models \r\nAI in Education Literature Review / Primary Author \r\nJune 2025 - PRESENT \r\nFinished writing a literature review(yet to publish): \r\n-  Understanding the impact of AI on middle schoolers in urban \r\ncommunities \r\n-  Considering its positive and negative implications \r\n-  Identifying ways to optimise the learning experience to take \r\nadvantage of the rise of AI while mitigating its negative impacts. \r\nElectromagnetic Pollution Research Paper / Co-author \r\nAugust 2025- PRESENT \r\nWorking on a research paper along with a friend: \r\n-  Investigating the impact of electromagnetic pollution on health. \r\n-  Factors that affect and how to reduce these negative impacts. \r\n \r\nFlex Banner Research /  \r\nAugust 2024-PRESENT \r\nWorking on a research project with a couple friends: \r\n-  The project considers the problem of unrecyclable flex in India, \r\nand to enable recyclability, we have created a solvent \r\n-  This project was presented by one of my team members at the \r\nIIT bombay tech fest 2024-2025 and won: \r\nhttps://sofworld.org/techfest-iit-bombay-winners-2024-25 as \r\nAABIR KAPOOR \r\n-  Working in collaboration with Hasiru Dala company to pilot and \r\nindustrialise the process \r\n-  Making preparations to participate in  IRIS 2025 and Imperial \r\nStemathon 2025. \r\n \r\nData Science for Underprivileged youths \r\nJune 2025 - PRESENT \r\nCurrently working on an initiative: \r\n-  Teaching children at government schools basic data science skills \r\n-  The course content will extend to basic machine learning. \r\n-  Ideally, by the end, the children will have all the skills expected in \r\nan entry level data science job. \r\n \r\nFirst Tech Challenge \r\nAugust 2021 - March 2022 \r\n- Learnt to use Autodesk Fusion 360. \r\n----------------Page (1) Break----------------\r\n- Came top 10 out of __ teams. Our team is listed here: \r\nhttps://ftcscout.org/events/2021/INCMP/teams. \r\n- Raised 44093 INR for Agastya International Foundation to \r\ndistribute ActiLearn 1.0 books to 675 underprivileged \r\nchildren. \r\n- Gave a live, in person robotics session to the children at the \r\nAgastya Foundation. \r\n \r\nSAT AI W ebsite \r\nJuly  2025-PRESENT \r\nHave made and deployed a website: \r\n- That provides the following AI based SAT english tools \r\n- 20 question practice tests topic wise and for all topics with \r\nadditional customisability \r\n- A question solver to help elucidate the workings behind \r\ncertain questions. \r\n \r\n \r\nTalisma / Intern \r\nJune 2025 - August 2025 \r\n- Worked on a multitude of projects during my internships \r\n- Created an OCR program with three major functions: \r\n- Summarising a document(Aadhaar, PAN, etc) to \r\nextract the key details. \r\n- Comparing a document to some text in a form. \r\nApplicable in registration scenarios to eliminate the \r\nneed of manually checking if the details align. \r\n- Comparing two documents. Similar applications. \r\n- Then I expanded onto these three to specialise for \r\nhandwritten documents such as FIRs. This version \r\ncreated a table to neatly present all the \r\ninformation. \r\n- Created an email analysis and response project which \r\nextracts key points from an email, and then using a \r\nknowledge base generates a recommended output. \r\n- Expanded on this by using Talisma’s custom API \r\ninstead of generic LLM APIs \r\n- Applicable in any business with a customer support \r\nor email contact service \r\n- Created an Interactive student LMS that has two main \r\nfeatures: Assignment taking(generated with AI) and \r\ncontent learning(also AI generated). These were created \r\nbased on provided topics and three links for these topics. \r\n- Created a “university response” AI product that has the \r\ninformation of a university’s FAQ and their student \r\nspreadsheet. Certain questions can be asked to this AI \r\nbased on these two documents and it parses through all \r\nthe data and provides an output. \r\n- Applicable for any university responses(including \r\nemail) and also for internal university purposes. \r\n- Lastly, I created an “API factory.” While the basic code can \r\nbe repurposed for anything, I was told to expand it for the \r\npurposes of the first project. Essentially, a customer can \r\n----------------Page (2) Break----------------\r\ncreate their OWN custom api that can fulfill any of the \r\nthree roles described in the first project with any degree of \r\ncustomisation that they wish. \r\n \r\n  \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\nᅳ\r\n \r\nCourses \r\n \r\nData Science and Machine learning with Python \r\n- Learnt a vast breadth of topics in Data science and \r\nMachine learning, from simple data processing to the \r\nessential concepts behind neural networks \r\n \r\nOMOTEC Expert Automation V2 \r\n- Learnt circuit designing using online technologies and real \r\nlive circuits. Learnt how to use arduino including C/C++ \r\nbasics. \r\nᅳ\r\n \r\nAwards/Misc/Honors \r\n \r\nIGCSE W orld Topper Extended and Additional Mathematics. \r\n \r\nClass Topper, English Language Subject Topper, Additional \r\nMathematics Subject Topper \r\n10th grade \r\n \r\n \r\nHackathons \r\n6th grade - 9th grade \r\n- Participated in 3 hackathons. I came 2nd place in one, was \r\nnominated amongst the top 6 teams in another, and was \r\nnominated in the top 10 teams in the last. \r\n \r\n \r\n \r\n----------------Page (3) Break----------------\r\n \r\n----------------Page (4) Break----------------\r\n"
     },
     {
       "role": "assistant",
-      "content": "Thanks for uploading your CV (Meta_VJ (1).pdf)! Let me generate some personalized questions based on your profile..."
+      "content": "Thanks for uploading your CV (Resume (1).pdf)! Let me generate some personalized questions based on your profile..."
     },
     {
       "role": "assistant",
-      "content": "Given your ambitious goal of becoming a Software Engineer at Google within three months, dedicating 5-10 hours a week, what specific aspect of Google's work or culture excites you most, and what do you anticipate will be your biggest challenge in reaching this target?"
+      "content": "You're aiming for a Product Manager role at Google. Beyond the general appeal, what specific aspects of Product Management or Google's mission truly excite you, and what kind of problems or users are you most passionate about impacting?"
     },
     {
       "role": "user",
-      "content": "ok"
+      "content": "not sure"
     },
     {
       "role": "assistant",
-      "content": "With your limited time commitment, what specific technical skills or areas do you feel are most crucial for you to develop or strengthen to be competitive for Google, and what learning approach works best for you to maximize your progress?"
+      "content": "Considering you're targeting a highly competitive Product Manager role at Google within 3 months, what are 1-2 key skills or experiences you believe are most critical for you to develop or showcase to stand out?"
     },
     {
       "role": "user",
-      "content": "ok"
+      "content": "not sure"
     },
     {
       "role": "assistant",
-      "content": "Beyond the initial role, what kind of impact or contribution are you most eager to make as a Software Engineer, and how do you envision this first step at Google aligning with your broader career vision?"
+      "content": "With 5-10 hours per week and a 3-month deadline, what specific challenges do you anticipate in preparing for this role, and what learning methods or types of support have you found most effective for tackling ambitious goals in the past?"
     },
     {
       "role": "user",
-      "content": "ok"
+      "content": "not sure"
     },
     {
       "role": "assistant",
@@ -103,27 +103,27 @@
   ],
   "hardcodedAnswers": {
     "age": "18-24",
-    "location": "United States",
-    "targetPosition": "Software Engineer",
-    "targetCompany": "Google",
-    "salaryRange": "$50k-$80k",
+    "location": "Asia",
+    "targetPosition": "Product Manager",
+    "targetCompany": "google",
+    "salaryRange": "$80k-$120k",
     "timePerWeek": "5-10 hours",
     "targetDate": "3 months"
   },
   "personalizedAnswers": [
-    "ok",
-    "ok",
-    "ok"
+    "not sure",
+    "not sure",
+    "not sure"
   ],
   "personalizedQuestions": [
-    "Given your ambitious goal of becoming a Software Engineer at Google within three months, dedicating 5-10 hours a week, what specific aspect of Google's work or culture excites you most, and what do you anticipate will be your biggest challenge in reaching this target?",
-    "With your limited time commitment, what specific technical skills or areas do you feel are most crucial for you to develop or strengthen to be competitive for Google, and what learning approach works best for you to maximize your progress?",
-    "Beyond the initial role, what kind of impact or contribution are you most eager to make as a Software Engineer, and how do you envision this first step at Google aligning with your broader career vision?"
+    "You're aiming for a Product Manager role at Google. Beyond the general appeal, what specific aspects of Product Management or Google's mission truly excite you, and what kind of problems or users are you most passionate about impacting?",
+    "Considering you're targeting a highly competitive Product Manager role at Google within 3 months, what are 1-2 key skills or experiences you believe are most critical for you to develop or showcase to stand out?",
+    "With 5-10 hours per week and a 3-month deadline, what specific challenges do you anticipate in preparing for this role, and what learning methods or types of support have you found most effective for tackling ambitious goals in the past?"
   ],
   "cvFile": {
-    "name": "Meta_VJ (1).pdf",
-    "size": 161603,
+    "name": "Resume (1).pdf",
+    "size": 136456,
     "type": "application/pdf"
   },
-  "timestamp": "2026-01-06T14:54:26.229Z"
+  "timestamp": "2026-01-06T19:01:04.237Z"
 }

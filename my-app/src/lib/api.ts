@@ -229,6 +229,7 @@ export type CoreSignalProfile = {
   created_at: string;
   updated_at: string;
   linkedin_url?: string | null;
+  profile_picture?: string | null;
 };
 
 export async function fetchCoreSignalProfiles(params: {
@@ -414,6 +415,7 @@ export async function getCoreSignalResumes(experienceTitle: string, experienceCo
         issue_date: string | null;
       }> | null;
       linkedin_url?: string | null;
+      profile_picture?: string | null;
     }>;
   }>("/coresignal", {
     method: "POST",

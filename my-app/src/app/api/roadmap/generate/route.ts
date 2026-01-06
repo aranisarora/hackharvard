@@ -30,7 +30,13 @@ Generate a comprehensive roadmap with realistic tasks and timelines. Today is 20
 **For Dashboard:**
 - Extract targetJob, targetCompany, and email from the conversation
 - If email is not provided, leave it as empty or use a placeholder
-- overallProgress: Set to 0 (fresh start) unless stated otherwise
+- overallProgress: CRITICAL - You MUST calculate a percentage (0-100) by comparing the initialCV to the targetCV. Analyze:
+  * What percentage of required skills does the user currently have?
+  * What percentage of required experience/qualifications does the user have?
+  * What percentage of certifications/education requirements are met?
+  * Consider the gap between current state (initialCV) and target state (targetCV)
+  * Return a realistic percentage (typically 20-60% for someone starting their journey, higher if they're closer to the target)
+  * DO NOT default to 0 - always calculate based on the actual comparison
 - categories: If no categories are mentioned, create 3-4 logical categories (e.g., Skills, Experience, Certifications, Projects)
 
 **For mentor information (optional):**

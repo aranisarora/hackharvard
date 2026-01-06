@@ -5,15 +5,45 @@ import Link from "next/link";
 import { FileText, Route, Target, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react";
 
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const [userEmail, setUserEmail] = useState<string>("user@example.com");
+  const [userName, setUserName] = useState<string>("Software Engineer");
 
-  const handleLogout = () => {
-    // In real app, this would clear auth tokens/session
-    console.log("Logging out...");
-    router.push("/");
+  useEffect(() => {
+    async function FetchUserData() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserEmail(user.email || "user@example.com");
+          setUserName(
+            user.user_metadata?.full_name || 
+            user.user_metadata?.name || 
+            user.email?.split('@')[0] || 
+            "Software Engineer"
+          );
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    }
+    FetchUserData();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      router.push("/");
+    }
   };
 
   const navItems = [
@@ -60,9 +90,9 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
-              user@example.com
+              {userEmail}
             </p>
-            <p className="text-xs text-muted-foreground">Software Engineer</p>
+            <p className="text-xs text-muted-foreground">{userName}</p>
           </div>
         </div>
         <Button
