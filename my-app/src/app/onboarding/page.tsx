@@ -128,13 +128,20 @@ export default function OnboardingPage() {
         
         const chunk = decoder.decode(value, { stream: true });
         accumulatedText += chunk;
+        console.log("Streaming chunk:", chunk);
+        console.log("Accumulated so far:", accumulatedText);
         
         // Try to parse JSON as it streams in
         try {
-          // Updated regex to also match suggestedReplies
-          const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+          // Try to find valid JSON in the accumulated text
+          let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+          if (!jsonMatch) {
+            // Try more lenient pattern for nested objects
+            jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+          }
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
+            console.log("Successfully parsed JSON:", parsed);
             // Update the message with the reply text as it streams
             if (parsed.reply) {
               setMessages((prev) =>
@@ -152,14 +159,20 @@ export default function OnboardingPage() {
           }
         } catch (e) {
           // JSON not complete yet, continue streaming
+          console.log("JSON parsing failed (expected during streaming):", (e as Error).message);
         }
       }
       
       // Final parse after stream completes
+      console.log("Stream complete. Final accumulated text:", accumulatedText);
       try {
-        const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+        let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+        if (!jsonMatch) {
+          jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+        }
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
+          console.log("Final parse successful:", parsed);
           
           // Update final message content
           setMessages((prev) =>
@@ -178,9 +191,20 @@ export default function OnboardingPage() {
           if (parsed.readyForRoadmap === true) {
             setReadyForRoadmap(true);
           }
+        } else {
+          console.warn("No valid JSON found in response. Accumulated text:", accumulatedText);
+          // Fallback: use accumulated text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId
+                ? { ...msg, content: accumulatedText }
+                : msg
+            )
+          );
         }
       } catch (e) {
         // If parsing fails, use accumulated text
+        console.error("Final parse failed:", e);
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMsgId
@@ -262,12 +286,17 @@ export default function OnboardingPage() {
           
           const chunk = decoder.decode(value, { stream: true });
           accumulatedText += chunk;
+          console.log("Append streaming chunk:", chunk);
           
           // Try to parse JSON as it streams in
           try {
-            const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+            let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+            if (!jsonMatch) {
+              jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+            }
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
+              console.log("Append parsed JSON:", parsed);
               // Update the message with the reply text as it streams
               if (parsed.reply) {
                 setMessages((prev) =>
@@ -276,7 +305,7 @@ export default function OnboardingPage() {
                       ? { 
                           ...msg, 
                           content: parsed.reply,
-                          suggestedReplies: parsed.suggestedReplies || []
+                          suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
                         }
                       : msg
                   )
@@ -285,14 +314,20 @@ export default function OnboardingPage() {
             }
           } catch (e) {
             // JSON not complete yet, continue streaming
+            console.log("Append JSON parsing failed (expected during streaming):", (e as Error).message);
           }
         }
         
         // Final parse after stream completes
+        console.log("Append stream complete. Final accumulated text:", accumulatedText);
         try {
-          const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+          let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+          if (!jsonMatch) {
+            jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+          }
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
+            console.log("Append final parse successful:", parsed);
             
             // Update final message content
             setMessages((prev) =>
@@ -301,7 +336,7 @@ export default function OnboardingPage() {
                   ? { 
                       ...msg, 
                       content: parsed.reply || accumulatedText,
-                      suggestedReplies: parsed.suggestedReplies || []
+                      suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
                     }
                   : msg
               )
@@ -311,9 +346,19 @@ export default function OnboardingPage() {
             if (parsed.readyForRoadmap === true) {
               setReadyForRoadmap(true);
             }
+          } else {
+            console.warn("Append: No valid JSON found. Accumulated text:", accumulatedText);
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMsgId
+                  ? { ...msg, content: accumulatedText }
+                  : msg
+              )
+            );
           }
         } catch (e) {
           // If parsing fails, use accumulated text
+          console.error("Append final parse failed:", e);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -391,9 +436,13 @@ export default function OnboardingPage() {
             
             const chunk = decoder.decode(value, { stream: true });
             accumulatedText += chunk;
+            console.log("Initial message streaming chunk:", chunk);
             
             try {
-              const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+              let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+              if (!jsonMatch) {
+                jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+              }
               if (jsonMatch) {
                 const parsed = JSON.parse(jsonMatch[0]);
                 if (parsed.reply) {
@@ -412,14 +461,20 @@ export default function OnboardingPage() {
               }
             } catch (e) {
               // JSON not complete yet
+              console.log("Initial message JSON parsing failed (expected during streaming)");
             }
           }
           
           // Final parse
+          console.log("Initial message stream complete. Final accumulated text:", accumulatedText);
           try {
-            const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+            let jsonMatch = accumulatedText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+            if (!jsonMatch) {
+              jsonMatch = accumulatedText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+            }
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
+              console.log("Initial message final parse successful:", parsed);
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMsgId
@@ -434,8 +489,18 @@ export default function OnboardingPage() {
               if (parsed.readyForRoadmap === true) {
                 setReadyForRoadmap(true);
               }
+            } else {
+              console.warn("Initial message: No valid JSON found. Accumulated text:", accumulatedText);
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMsgId
+                    ? { ...msg, content: accumulatedText }
+                    : msg
+                )
+              );
             }
           } catch (e) {
+            console.error("Initial message final parse failed:", e);
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMsgId

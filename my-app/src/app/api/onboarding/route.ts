@@ -115,20 +115,30 @@ export async function POST(request: Request) {
       onFinish: async (result) => {
         // Parse the final response to extract JSON and metadata
         const fullText = result.text;
+        console.log("[Onboarding] Full response from Gemini:", fullText);
         try {
-          const jsonMatch = fullText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+          // Try multiple regex patterns to find valid JSON
+          let jsonMatch = fullText.match(/\{[^{}]*"readyForRoadmap"[^{}]*"reply"[^{}]*\}/);
+          if (!jsonMatch) {
+            jsonMatch = fullText.match(/\{[\s\S]*?"readyForRoadmap"[\s\S]*?"reply"[\s\S]*?\}/);
+          }
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            console.log("Parsed response:", parsed);
+            console.log("[Onboarding] Parsed response:", parsed);
+          } else {
+            console.warn("[Onboarding] No valid JSON found in response");
           }
         } catch (e) {
-          console.error("Failed to parse JSON response:", e);
+          console.error("[Onboarding] Failed to parse JSON response:", e);
         }
       },
     });
 
-    // Return the streaming response
-    return result.toTextStreamResponse();
+    // Return the streaming response with proper content type
+    const response = result.toTextStreamResponse();
+    response.headers.set('Content-Type', 'text/event-stream');
+    response.headers.set('Cache-Control', 'no-cache');
+    return response;
   } catch (error) {
     console.error("Error in onboarding route:", error);
     return new Response(

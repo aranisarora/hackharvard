@@ -266,7 +266,8 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 grid md:grid-cols-2 gap-6">
           {categories.map((category: any) => {
             const Icon = iconMap[category.icon] || Briefcase;
-            const completedCount = category.tasks.filter((t: any) => t.completed).length;
+            const tasks = category.tasks || [];
+            const completedCount = tasks.filter((t: any) => t.completed).length;
 
             return (
               <Card key={category.id}>
@@ -279,7 +280,7 @@ export default function DashboardPage() {
                       <div>
                         <CardTitle>{category.title}</CardTitle>
                         <CardDescription>
-                          {completedCount}/{category.tasks.length} completed
+                          {completedCount}/{tasks.length} completed
                         </CardDescription>
                       </div>
                     </div>
@@ -291,7 +292,7 @@ export default function DashboardPage() {
                 <CardContent>
                   <Progress value={category.progress} className="h-2 mb-4" />
                   <div className="space-y-2">
-                    {category.tasks.map((task: any, idx: number) => {
+                    {tasks.map((task: any, idx: number) => {
                       // Find matching roadmap task to get dates
                       const roadmapTask = roadmapTasks.find(
                         (rt: any) => rt.title === task.title && rt.category === category.id

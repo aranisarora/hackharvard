@@ -3,8 +3,7 @@ import { streamChatbotResponse } from "@/services/gemini-service";
 // Use Edge Runtime for lower latency
 export const runtime = "edge";
 
-// System prompt for dashboard chatbot - general career advisor
-const DASHBOARD_CHATBOT_SYSTEM_PROMPT = `You are a helpful and friendly career advisor assistant for PathForge, a platform that helps users achieve their career goals through personalized roadmaps.
+const SYSTEM_PROMPT = `You are a helpful and friendly career advisor assistant for PathForge, a platform that helps users achieve their career goals through personalized roadmaps.
 
 Your role is to:
 - Answer questions about the user's career roadmap and progress
@@ -21,17 +20,15 @@ export async function POST(request: Request) {
   try {
     const { messages } = await request.json();
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response("Messages are required", { status: 400 });
     }
 
-    // Use the generic chatbot service
-    // useChat sends messages in format: { role: "user" | "assistant", content: string }
+    // Stream the chatbot response
     const result = await streamChatbotResponse(messages, {
-      systemPrompt: DASHBOARD_CHATBOT_SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT,
     });
 
-    // Return the streaming response compatible with useChat
     return result.toTextStreamResponse();
   } catch (error) {
     console.error("Error in dashboard chatbot route:", error);

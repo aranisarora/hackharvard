@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useChat } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,28 +10,12 @@ import { cn } from "@/lib/utils";
 export function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [input, setInput] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const { messages, sendMessage, status, error } = useChat({
-    onError: (error) => {
-      console.error("Chatbot error:", error);
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-      });
-    },
-    onResponse: (response) => {
-      console.log("Chatbot response received:", response.status, response.statusText);
-    },
-    onFinish: (message) => {
-      console.log("Chatbot message finished:", message);
-    },
-  });
-
-  const isLoading = status === "streaming";
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -63,22 +46,90 @@ export function FloatingChatbot() {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input || !input.trim() || isLoading) return;
+    if (!inputValue || !inputValue.trim() || isLoading) return;
     
-    const message = input.trim();
-    setInput("");
+    const userMessage = inputValue.trim();
+    setInputValue("");
     
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
     
-    await sendMessage({ text: message });
+    // Add user message to the chat
+    const userMsg = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      content: userMessage,
+    };
+    
+    setMessages(prev => [...prev, userMsg]);
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch("/api/chatbot/dashboard", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg],
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      if (!response.body) {
+        throw new Error("No response body");
+      }
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = "";
+      const assistantMsg = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant" as const,
+        content: "",
+      };
+      
+      // Add placeholder for assistant message
+      setMessages(prev => [...prev, assistantMsg]);
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        assistantMessage += chunk;
+        
+        // Update the assistant message with streaming content
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            ...newMessages[newMessages.length - 1],
+            content: assistantMessage,
+          };
+          return newMessages;
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send message";
+      setError(new Error(errorMessage));
+      console.error("Chat error:", err);
+      
+      // Remove the user message if there was an error
+      setMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle textarea auto-resize
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    setInputValue(e.target.value);
     // Auto-resize textarea
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
@@ -163,12 +214,7 @@ export function FloatingChatbot() {
                           : "bg-muted text-foreground"
                       )}
                     >
-                      <p className="whitespace-pre-wrap">
-                        {message.parts
-                          ?.filter((p: any) => p.type === "text")
-                          .map((p: any) => p.text)
-                          .join("") || ""}
-                      </p>
+                      <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   </div>
                 ))}
@@ -199,7 +245,8 @@ export function FloatingChatbot() {
                 <form onSubmit={onSubmit} className="flex gap-2">
                   <Textarea
                     ref={textareaRef}
-                    value={input || ""}
+                    name="prompt"
+                    value={inputValue}
                     onChange={handleTextareaChange}
                     placeholder="Ask a question..."
                     className="min-h-[60px] max-h-[120px] resize-none"
@@ -214,7 +261,7 @@ export function FloatingChatbot() {
                   <Button
                     type="submit"
                     size="icon"
-                    disabled={isLoading || !input || !input.trim()}
+                    disabled={isLoading || !inputValue || !inputValue.trim()}
                     className="shrink-0"
                   >
                     <Send className="h-4 w-4" />

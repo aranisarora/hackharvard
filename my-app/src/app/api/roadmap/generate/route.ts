@@ -1,82 +1,46 @@
-import { generateTextResponse } from "@/services/gemini-service";
+import { generateStructuredResponse } from "@/services/gemini-service";
+import { RoadmapGenerationSchema } from "@/features/roadmap/schemas";
 import { NextResponse } from "next/server";
 
 // Use Edge Runtime for lower latency
 export const runtime = "edge";
 
 // System prompt for roadmap generation
-const ROADMAP_GENERATION_SYSTEM_PROMPT = `You are an expert career advisor. Analyze the conversation and generate a roadmap and target CV.
+const ROADMAP_GENERATION_SYSTEM_PROMPT = `You are an expert career advisor. Analyze the conversation and generate a detailed roadmap and target CV.
 
-Return ONLY valid JSON in this exact format:
-{
-  "initialCV": "User's current CV extracted from conversation",
-  "targetCV": "Ideal CV for their target job/company",
-  "roadmap": {
-    "tasks": [
-      {
-        "id": "task-1",
-        "category": "skills",
-        "title": "Task title",
-        "description": "Why this matters",
-        "checklist": [
-          {"id": "check-1", "text": "Action step", "isCompleted": false}
-        ],
-        "deadline": "2025-12-31",
-        "startDate": "2025-01-01",
-        "endDate": "2025-12-31",
-        "isCompleted": false,
-        "mentor": {
-          "name": "Mentor Name",
-          "title": "Job Title",
-          "company": "Company Name",
-          "email": "mentor@example.com",
-          "profileImage": "https://example.com/image.jpg",
-          "description": "Mentor description"
-        }
-      }
-    ]
-  },
-  "dashboard": {
-    "user": {
-      "email": "user@example.com",
-      "targetJob": "Job title",
-      "targetCompany": "Company name"
-    },
-    "overallProgress": 0,
-    "categories": [
-      {
-        "id": "cat-1",
-        "title": "Category name",
-        "icon": "Briefcase",
-        "color": "#3b82f6",
-        "bgColor": "#dbeafe",
-        "tasks": [{"title": "Task title", "completed": false}],
-        "progress": 0
-      }
-    ]
-  }
-}
+IMPORTANT: You MUST provide substantive content. Do not return empty strings or empty arrays.
 
-CRITICAL DATE REQUIREMENTS:
-1. ALL tasks MUST include both "startDate" and "endDate" fields (YYYY-MM-DD format)
-2. Dates must be realistic and based on TODAY's date. Use the current date as a reference point.
-3. startDate should be today or in the near future (within 1-2 weeks)
-4. endDate should be after startDate and reflect realistic timeframes:
-   - Simple tasks: 1-2 weeks
-   - Medium tasks: 1-3 months
-   - Complex tasks (certifications, major projects): 2-6 months
-5. Tasks should be sequenced logically - earlier tasks should have earlier dates
-6. The "deadline" field should match the "endDate" field
-7. Ensure dates are sequential and don't overlap unreasonably unless tasks can be done in parallel
+Generate a comprehensive roadmap with realistic tasks and timelines. Today is 2026-01-06.
 
-PROGRESS CALCULATION:
-- Set "isCompleted": true for tasks the user has already completed based on the conversation
-- Set "isCompleted": true for checklist items that are already done
-- The system will automatically calculate progress percentages based on completed tasks
-- Category progress = (completed tasks in category / total tasks in category) * 100
-- Overall progress = average of all category progress values
+**For initialCV and targetCV:**
+- initialCV: Extract and summarize the user's current experience, education, and skills from the conversation
+- targetCV: Create a detailed description of the ideal CV needed to achieve their goal
 
-IMPORTANT: Return ONLY valid JSON. No text outside the JSON object.`;
+**For Roadmap Tasks:**
+- Generate at least 3-5 actionable tasks to bridge the gap between current and target state
+- Each task should be concrete and measurable
+- If no specific tasks are mentioned, infer reasonable career development tasks
+
+**For dates (if generating tasks):**
+- startDate: Today or up to 2 weeks from now (2026-01-06 format)
+- endDate: Reflects realistic task duration (simple: 1-2 weeks, medium: 1-3 months, complex: 2-6 months)
+- deadline: Must match endDate
+- All dates must be in YYYY-MM-DD format and valid dates
+
+**For Dashboard:**
+- Extract targetJob, targetCompany, and email from the conversation
+- If email is not provided, leave it as empty or use a placeholder
+- overallProgress: Set to 0 (fresh start) unless stated otherwise
+- categories: If no categories are mentioned, create 3-4 logical categories (e.g., Skills, Experience, Certifications, Projects)
+
+**For mentor information (optional):**
+- If you cannot generate valid data, use null/omit the field
+- If included: use realistic email addresses or leave blank
+- profileImage: use valid HTTPS URLs or omit
+
+**Critical:** Provide real, meaningful data from the conversation. Never return empty strings for key fields like initialCV, targetCV, or targetJob.`;
+
+
 
 export async function POST(request: Request) {
   try {
@@ -89,153 +53,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use the generic text generation service
-    const result = await generateTextResponse(messages, {
+    // Use structured output to ensure valid response format
+    const result = await generateStructuredResponse(messages, {
       systemPrompt: ROADMAP_GENERATION_SYSTEM_PROMPT,
+      schema: RoadmapGenerationSchema,
     });
 
-    // Parse the response
-    let generatedData;
-    try {
-      // Try to extract JSON from the response
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        generatedData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      console.error("Raw response:", result.text);
-      return NextResponse.json(
-        { error: "Failed to parse AI response", details: result.text },
-        { status: 500 }
-      );
-    }
+    // The response is already validated against the schema
+    const generatedData = result.object;
 
-    // Validate the structure (basic validation)
-    if (!generatedData.initialCV || !generatedData.targetCV || !generatedData.roadmap) {
-      return NextResponse.json(
-        { error: "Invalid response structure from AI" },
-        { status: 500 }
-      );
-    }
-
-    // Validate and ensure dates are present for all tasks
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (generatedData.roadmap.tasks && Array.isArray(generatedData.roadmap.tasks)) {
-      generatedData.roadmap.tasks.forEach((task: any, index: number) => {
-        // Ensure startDate exists
-        if (!task.startDate) {
-          // Default: start today or in the next few days
-          const startDate = new Date(today);
-          startDate.setDate(startDate.getDate() + (index * 7)); // Stagger by weeks
-          task.startDate = startDate.toISOString().split('T')[0];
-        }
-        
-        // Ensure endDate exists
-        if (!task.endDate) {
-          // Default: end 1-3 months from start
-          const startDate = new Date(task.startDate || today);
-          const endDate = new Date(startDate);
-          
-          // Estimate duration based on task complexity
-          const taskTitle = (task.title || '').toLowerCase();
-          let daysToAdd = 30; // Default: 1 month
-          
-          if (taskTitle.includes('certification') || taskTitle.includes('cert')) {
-            daysToAdd = 90; // 3 months for certifications
-          } else if (taskTitle.includes('project') || taskTitle.includes('build')) {
-            daysToAdd = 60; // 2 months for projects
-          } else if (taskTitle.includes('learn') || taskTitle.includes('study')) {
-            daysToAdd = 45; // 1.5 months for learning
-          }
-          
-          endDate.setDate(endDate.getDate() + daysToAdd);
-          task.endDate = endDate.toISOString().split('T')[0];
-        }
-        
-        // Ensure deadline matches endDate if not provided
-        if (!task.deadline) {
-          task.deadline = task.endDate;
-        }
-        
-        // Validate date order
-        const startDate = new Date(task.startDate);
-        const endDate = new Date(task.endDate);
-        if (endDate < startDate) {
-          // If endDate is before startDate, swap them
-          task.startDate = endDate.toISOString().split('T')[0];
-          task.endDate = startDate.toISOString().split('T')[0];
-        }
-      });
-    }
-
-    // Calculate and set initial progress values
-    if (generatedData.roadmap.tasks && Array.isArray(generatedData.roadmap.tasks)) {
-      // Group tasks by category
-      const tasksByCategory: { [key: string]: any[] } = {};
-      generatedData.roadmap.tasks.forEach((task: any) => {
-        const category = task.category || 'other';
-        if (!tasksByCategory[category]) {
-          tasksByCategory[category] = [];
-        }
-        tasksByCategory[category].push(task);
-      });
-
-      // Calculate progress for each category
-      const categoryProgress: { [key: string]: number } = {};
-      Object.keys(tasksByCategory).forEach((category) => {
-        const categoryTasks = tasksByCategory[category];
-        const totalTasks = categoryTasks.length;
-        const completedTasks = categoryTasks.filter((t: any) => t.isCompleted === true).length;
-        categoryProgress[category] = totalTasks > 0 
-          ? Math.round((completedTasks / totalTasks) * 100) 
-          : 0;
-      });
-
-      // Update dashboard categories with calculated progress
-      if (generatedData.dashboard && generatedData.dashboard.categories) {
-        generatedData.dashboard.categories.forEach((category: any) => {
-          const categoryId = category.id;
-          if (categoryProgress[categoryId] !== undefined) {
-            category.progress = categoryProgress[categoryId];
-          }
-          
-          // Ensure tasks in dashboard match roadmap tasks
-          const categoryTasks = tasksByCategory[categoryId] || [];
-          category.tasks = categoryTasks.map((task: any) => ({
-            title: task.title,
-            completed: task.isCompleted === true
-          }));
-        });
-
-        // Calculate overall progress as average of category progress
-        const categoryProgressValues = Object.values(categoryProgress);
-        const overallProgress = categoryProgressValues.length > 0
-          ? Math.round(categoryProgressValues.reduce((sum, val) => sum + val, 0) / categoryProgressValues.length)
-          : 0;
-        
-        generatedData.dashboard.overallProgress = overallProgress;
-      }
-    }
-
-    // TODO: Save to database when Prisma is set up
-    // For now, we'll return the data and the frontend can store it in session/localStorage
-    // or we can implement a simple in-memory store
-
+    // Return the validated data
     return NextResponse.json({
       success: true,
       data: generatedData,
     });
   } catch (error) {
     console.error("Error in roadmap generation:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorDetails = error instanceof Error ? error.stack : "";
+    
+    // Log full error for debugging
+    console.error("Full error details:", {
+      message: errorMessage,
+      stack: errorDetails,
+      error: error,
+    });
+    
     return NextResponse.json(
       {
         error: "Failed to generate roadmap",
-        details: error instanceof Error ? error.message : "Unknown error",
+        details: errorMessage,
+        fullError: process.env.NODE_ENV === "development" ? errorDetails : undefined,
       },
       { status: 500 }
     );
