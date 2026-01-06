@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+const PDFParser = require("pdf2json");
 
 export async function POST(request: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-    
+
     if (!validTypes.includes(file.type)) {
       return NextResponse.json(
         { error: "Invalid file type. Please upload a PDF, DOC, or DOCX file." },
@@ -41,10 +42,12 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      console.warn("User not authenticated during CV upload (continuing for parsing only)");
+      // Don't block - allow parsing for onboarding without auth
+      // return NextResponse.json(
+      //   { error: "Unauthorized" },
+      //   { status: 401 }
+      // );
     }
 
     // Convert file to base64 for storage (or you could upload to Supabase Storage)
@@ -62,10 +65,36 @@ export async function POST(request: Request) {
     // TODO: Store in database or Supabase Storage
     // For now, we'll return success and the file will be processed during roadmap generation
 
+    // Extract text from PDF if applicable
+    let extractedText = "";
+    if (file.type === "application/pdf") {
+      try {
+        extractedText = await new Promise((resolve, reject) => {
+          const pdfParser = new PDFParser(null, 1); // 1 = text content
+
+          pdfParser.on("pdfParser_dataError", (errData: any) => {
+            console.error("PDF Parser Error:", errData.parserError);
+            reject(new Error(errData.parserError));
+          });
+
+          pdfParser.on("pdfParser_dataReady", () => {
+            // In text mode (1), getRawTextContent() returns the text
+            const text = pdfParser.getRawTextContent();
+            resolve(text);
+          });
+
+          pdfParser.parseBuffer(buffer);
+        });
+      } catch (e) {
+        console.error("Error parsing PDF with pdf2json:", e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       fileName: file.name,
       fileSize: file.size,
+      extractedText, // Send back the text
       message: "CV uploaded successfully",
     });
   } catch (error) {

@@ -288,3 +288,15 @@ export async function generateRoadmap(messages: Array<{
   });
 }
 
+// Chat History API
+export async function saveChatHistory(messages: Array<any>) {
+  return fetchAPI<{ success: boolean; messageCount: number; timestamp: string }>("/chat/history", {
+    method: "POST",
+    body: JSON.stringify({ messages }),
+  });
+}
+
+export async function getChatHistory() {
+  return fetchAPI<{ history: { messages: Array<any>; timestamp: string } }>("/chat/history");
+}
+

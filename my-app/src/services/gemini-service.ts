@@ -147,6 +147,7 @@ export async function generateStructuredResponse<T>(
     maxTokens = DEFAULT_MAX_TOKENS,
   } = options;
 
+  console.log("[Gemini Service] Initializing API key...");
   initializeApiKey();
 
   const formattedMessages = formatMessages(messages);
@@ -155,7 +156,11 @@ export async function generateStructuredResponse<T>(
     throw new Error("No valid messages provided");
   }
 
-  return await generateObject({
+  console.log("[Gemini Service] Calling generateObject with model:", model);
+  console.log("[Gemini Service] Message count:", formattedMessages.length);
+  console.log("[Gemini Service] Max tokens:", maxTokens);
+
+  const result = await generateObject({
     model: google(model),
     system: systemPrompt,
     messages: formattedMessages,
@@ -163,5 +168,57 @@ export async function generateStructuredResponse<T>(
     temperature,
     maxTokens,
   });
+
+  console.log("[Gemini Service] generateObject completed successfully");
+  return result;
+}
+
+/**
+ * Summarize onboarding chat into structured key-value pairs
+ * @param messages - Array of conversation messages
+ * @returns Structured summary of user details
+ */
+export async function summarizeOnboardingChat(messages: ChatMessage[]) {
+  const systemPrompt = `You are an expert data extractor. Your task is to analyze a conversation between a career advisor bot and a user.
+  
+  Extract key user information into a simple JSON object with short, one-word keys (camelCase).
+  The values should be concise summaries of the user's answers.
+  
+  Examples of keys:
+  - age
+  - location
+  - targetRole
+  - targetCompany
+  - experienceLevel
+  - keySkills
+  - commitmentHours
+  - timeline
+  
+  Ignore system messages or irrelevant chit-chat. Focus on the user's facts and preferences.
+  If a piece of information is not present, do not invent it.
+  
+  Return ONLY the JSON object.`;
+
+  console.log("[Gemini Service] Summarizing chat...");
+
+  // We use a specific schema with optional fields to satisfy the API requirements while allowing flexibility
+  const result = await generateStructuredResponse(messages, {
+    systemPrompt,
+    schema: z.object({
+      age: z.string().optional(),
+      location: z.string().optional(),
+      targetRole: z.string().optional(),
+      targetCompany: z.string().optional(),
+      experienceLevel: z.string().optional(),
+      keySkills: z.string().optional(),
+      commitmentHours: z.string().optional(),
+      timeline: z.string().optional(),
+      otherDetails: z.string().optional(), // Catch-all for other info
+    }),
+    model: "gemini-2.5-flash", // Fast model for summarization
+    temperature: 0.2, // Low temperature for factual extraction
+  });
+
+  return result.object;
 }
 

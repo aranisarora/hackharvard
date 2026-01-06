@@ -44,23 +44,29 @@ Generate a comprehensive roadmap with realistic tasks and timelines. Today is 20
 
 export async function POST(request: Request) {
   try {
+    console.log("[Roadmap Generate] Starting roadmap generation...");
     const { messages } = await request.json();
+    console.log("[Roadmap Generate] Received messages:", messages?.length || 0);
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.error("[Roadmap Generate] Invalid messages:", messages);
       return NextResponse.json(
         { error: "Messages are required" },
         { status: 400 }
       );
     }
 
+    console.log("[Roadmap Generate] Calling generateStructuredResponse...");
     // Use structured output to ensure valid response format
     const result = await generateStructuredResponse(messages, {
       systemPrompt: ROADMAP_GENERATION_SYSTEM_PROMPT,
       schema: RoadmapGenerationSchema,
     });
+    console.log("[Roadmap Generate] Structured response received");
 
     // The response is already validated against the schema
     const generatedData = result.object;
+    console.log("[Roadmap Generate] Generated data keys:", Object.keys(generatedData));
 
     // Return the validated data
     return NextResponse.json({
@@ -71,14 +77,14 @@ export async function POST(request: Request) {
     console.error("Error in roadmap generation:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorDetails = error instanceof Error ? error.stack : "";
-    
+
     // Log full error for debugging
     console.error("Full error details:", {
       message: errorMessage,
       stack: errorDetails,
       error: error,
     });
-    
+
     return NextResponse.json(
       {
         error: "Failed to generate roadmap",
