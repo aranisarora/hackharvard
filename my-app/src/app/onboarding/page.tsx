@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Send, Upload, FileText, Loader2, Route } from "lucide-react";
-import { generateRoadmap, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
+import { saveOnboardingData } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -358,83 +358,45 @@ export default function OnboardingPage() {
 
     setIsGenerating(true);
     setGenerationProgress(0);
-    setGenerationStep("Analyzing conversation...");
+    setGenerationStep("Saving your information...");
 
     try {
-      // Step 1: Analyze conversation (20%)
-      setGenerationProgress(20);
-      setGenerationStep("Analyzing your conversation and goals...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Step 2: Generate initial CV (40%)
-      setGenerationProgress(40);
-      setGenerationStep("Extracting your current CV...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Step 3: Generate target CV (60%)
-      setGenerationProgress(60);
-      setGenerationStep("Creating your target CV...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Step 4: Generate roadmap (80%)
-      setGenerationProgress(80);
-      setGenerationStep("Generating your personalized roadmap...");
+      // Save all onboarding data to JSON file
+      setGenerationProgress(50);
       
-      // Call the API with all messages - transform to expected format
-      const formattedMessages = messages
-        .filter((msg) => msg.role === "user" || msg.role === "assistant")
-        .filter((msg) => msg.content && msg.content.trim()) // Filter out empty messages
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-      
-      console.log("Formatted messages for API:", formattedMessages);
-      
-      if (formattedMessages.length === 0) {
-        throw new Error("No valid messages to generate roadmap from");
-      }
-      
-      console.log("Calling generateRoadmap API...");
+      const onboardingData = {
+        messages: messages
+          .filter((msg) => msg.role === "user" || msg.role === "assistant")
+          .filter((msg) => msg.content && msg.content.trim())
+          .map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        hardcodedAnswers,
+        personalizedAnswers,
+        personalizedQuestions,
+        cvFile: cvFile ? {
+          name: cvFile.name,
+          size: cvFile.size,
+          type: cvFile.type
+        } : null
+      };
 
-      // Add timeout to prevent hanging - increased to 5 minutes as generation can take time
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timed out after 5 minutes")), 300000)
-      );
-
-      const result = await Promise.race([
-        generateRoadmap(formattedMessages),
-        timeoutPromise
-      ]) as Awaited<ReturnType<typeof generateRoadmap>>;
-
-      console.log("Roadmap generation result:", result);
+      console.log("Saving onboarding data:", onboardingData);
       
-      if (!result.success || !result.data) {
-        throw new Error("Failed to generate roadmap - no data returned");
-      }
+      await saveOnboardingData(onboardingData);
 
-      // Step 5: Save data (90%)
-      setGenerationProgress(90);
-      setGenerationStep("Saving your roadmap...");
-      
-      // Save the generated data to the API
-      await Promise.all([
-        saveCV(result.data.initialCV, result.data.targetCV),
-        saveRoadmap(result.data.roadmap.tasks),
-        saveDashboardData(result.data.dashboard),
-      ]);
-
-      // Step 6: Complete (100%)
+      // Step 2: Complete (100%)
       setGenerationProgress(100);
-      setGenerationStep("Complete! Redirecting...");
+      setGenerationStep("Redirecting to roadmap generation...");
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Navigate to dashboard
-      router.push("/dashboard");
+      // Navigate to generate roadmap page
+      router.push("/generate-roadmap");
     } catch (error) {
-      console.error("Error generating roadmap:", error);
+      console.error("Error saving onboarding data:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      alert(`Failed to generate roadmap: ${errorMessage}`);
+      alert(`Failed to save data: ${errorMessage}`);
       setIsGenerating(false);
       setGenerationProgress(0);
       setGenerationStep("");

@@ -433,12 +433,12 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-1 text-xs">
                 <span className="text-muted-foreground font-medium">Legend:</span>
                 <div className="flex flex-col gap-1">
-                  {Array.from(new Set(roadmapTasks.map(t => t.category))).map((cat) => {
+                  {Array.from(new Set(roadmapTasks.map(t => t.category).filter(Boolean))).map((cat) => {
                     const colors = getCategoryColor(cat);
                     return (
                       <div key={cat} className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${colors.bg} ${colors.border} border`} />
-                        <span className="capitalize">{cat.replace("-", " ")}</span>
+                        <span className="capitalize">{cat.replace(/-/g, " ")}</span>
                       </div>
                     );
                   })}

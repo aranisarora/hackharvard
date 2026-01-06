@@ -295,11 +295,15 @@ export async function sendOnboardingMessage(
 }
 
 // Roadmap Generation API
-export async function generateRoadmap(messages: Array<{
-  role: "user" | "assistant";
-  content?: string;
-  parts?: Array<{ type: string; text: string }>;
-}>) {
+export async function generateRoadmap(
+  messages: Array<{
+    role: "user" | "assistant";
+    content?: string;
+    parts?: Array<{ type: string; text: string }>;
+  }>,
+  onboardingData?: any,
+  resumes?: any[]
+) {
   return fetchAPI<{
     success: boolean;
     data: {
@@ -339,7 +343,7 @@ export async function generateRoadmap(messages: Array<{
     };
   }>("/roadmap/generate", {
     method: "POST",
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, onboardingData, resumes }),
   });
 }
 
@@ -353,6 +357,71 @@ export async function saveChatHistory(messages: Array<any>) {
 
 export async function getChatHistory() {
   return fetchAPI<{ history: { messages: Array<any>; timestamp: string } }>("/chat/history");
+}
+
+// Onboarding Data API
+export async function saveOnboardingData(data: {
+  messages: Array<any>;
+  hardcodedAnswers: Record<string, string>;
+  personalizedAnswers: string[];
+  personalizedQuestions: string[];
+  cvFile?: { name: string; size: number; type: string } | null;
+}) {
+  return fetchAPI<{ success: boolean; timestamp: string }>("/onboarding/save", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getOnboardingData() {
+  return fetchAPI<{ data: any; message?: string }>("/onboarding/save");
+}
+
+// CoreSignal API
+export async function getCoreSignalResumes(experienceTitle: string, experienceCompanyName: string) {
+  return fetchAPI<{
+    experience_title: string;
+    experience_company_name: string;
+    filter: { ids: number[]; total: number };
+    profiles: Array<{
+      id: number;
+      name: string | null;
+      headline: string | null;
+      location: string | null;
+      country: string | null;
+      industry: string | null;
+      experience: Array<{
+        title: string;
+        company_name: string;
+        location: string | null;
+        start_date: string | null;
+        end_date: string | null;
+        is_current: boolean;
+        description: string | null;
+      }>;
+      education: Array<{
+        school_name: string;
+        degree: string | null;
+        field_of_study: string | null;
+        start_date: string | null;
+        end_date: string | null;
+      }>;
+      skills: Array<{ name: string }> | string[];
+      languages: string[] | null;
+      certifications: Array<{
+        name: string;
+        issuer: string | null;
+        issue_date: string | null;
+      }> | null;
+      linkedin_url?: string | null;
+    }>;
+  }>("/coresignal", {
+    method: "POST",
+    body: JSON.stringify({
+      experience_title: experienceTitle,
+      experience_company_name: experienceCompanyName,
+    }),
+  });
 }
 
 // Course Linking API
