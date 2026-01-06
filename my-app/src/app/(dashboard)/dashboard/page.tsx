@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { FileText, Route, Briefcase, GraduationCap, Award, CheckCircle2, Circle, Calendar } from "lucide-react";
+import { FileText, Route, Briefcase, GraduationCap, Award, CheckCircle2, Circle, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { getDashboardData, getRoadmapTasks } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [roadmapTasks, setRoadmapTasks] = useState<any[]>([]);
+  const [viewDate, setViewDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,27 +44,27 @@ export default function DashboardPage() {
 
   // Get calendar data from roadmap tasks
   const getCalendarData = () => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    
+    // Use viewDate instead of current date
+    const currentMonth = viewDate.getMonth();
+    const currentYear = viewDate.getFullYear();
+
     // Get first day of month and number of days
     const firstDay = new Date(currentYear, currentMonth, 1).getDay();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
+
     // Create calendar grid
     const calendarDays: Array<{ date: number; categories: string[] }> = [];
-    
+
     // Add empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
       calendarDays.push({ date: 0, categories: [] });
     }
-    
+
     // Add days of month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day);
       const categories: string[] = [];
-      
+
       roadmapTasks.forEach(task => {
         if (task.startDate && task.endDate && !task.isCompleted) {
           const startDate = new Date(task.startDate);
@@ -71,16 +72,16 @@ export default function DashboardPage() {
           startDate.setHours(0, 0, 0, 0);
           endDate.setHours(0, 0, 0, 0);
           date.setHours(0, 0, 0, 0);
-          
+
           if (date >= startDate && date <= endDate) {
             categories.push(task.category);
           }
         }
       });
-      
+
       calendarDays.push({ date: day, categories: [...new Set(categories)] });
     }
-    
+
     return { calendarDays, currentMonth, currentYear };
   };
 
@@ -97,15 +98,15 @@ export default function DashboardPage() {
 
   const getCategoryProgressSegments = () => {
     if (!data?.categories || !data?.overallProgress || data.overallProgress === 0) return [];
-    
+
     // Calculate how much of the overall progress each category contributes
     // The overall progress is a weighted average of category progress
     // We need to calculate each category's contribution to the overall 45%
-    
+
     // First, get the total "weight" (sum of all category progress)
     const totalCategoryProgress = data.categories.reduce((sum: number, cat: any) => sum + cat.progress, 0);
     if (totalCategoryProgress === 0) return [];
-    
+
     // Calculate each category's contribution to overall progress
     // If overall is 45% and total category progress is 116% (66% + 50%), then:
     // Skills contributes: (66 / 116) * 45 = 25.6% of overall
@@ -117,7 +118,7 @@ export default function DashboardPage() {
         const contributionToOverall = (cat.progress / totalCategoryProgress) * data.overallProgress;
         // Percentage of the progress bar this category should occupy
         const barPercentage = (contributionToOverall / data.overallProgress) * 100;
-        
+
         return {
           ...cat,
           barPercentage,
@@ -125,8 +126,16 @@ export default function DashboardPage() {
           categoryProgress: cat.progress,
         };
       });
-    
+
     return segments;
+  };
+
+  const nextMonth = () => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  };
+
+  const previousMonth = () => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   };
 
   if (isLoading) {
@@ -176,7 +185,7 @@ export default function DashboardPage() {
   const { user, overallProgress, categories } = data;
   const { calendarDays, currentMonth, currentYear } = getCalendarData();
   const progressSegments = getCategoryProgressSegments();
-  
+
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
 
@@ -298,7 +307,7 @@ export default function DashboardPage() {
                         (rt: any) => rt.title === task.title && rt.category === category.id
                       );
                       const deadline = roadmapTask?.endDate || roadmapTask?.deadline;
-                      
+
                       return (
                         <div key={idx} className="flex items-center justify-between gap-2 text-sm">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -338,13 +347,23 @@ export default function DashboardPage() {
         {/* Calendar Sidebar */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <CardTitle>Activity Calendar</CardTitle>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                <CardTitle>Activity Calendar</CardTitle>
+              </div>
+              <div className="flex items-center justify-between xl:justify-end gap-1 w-full xl:w-auto">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={previousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium min-w-[120px] text-center">
+                  {monthNames[currentMonth]} {currentYear}
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <CardDescription>
-              {monthNames[currentMonth]} {currentYear}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-7 gap-1 text-center text-xs">
@@ -357,27 +376,26 @@ export default function DashboardPage() {
                 // Get the primary category color for the day (first category or blend if multiple)
                 const getDayBackgroundColor = () => {
                   if (day.categories.length === 0) return "bg-background border-muted";
-                  
+
                   // If multiple categories, use a gradient or the first one
                   const primaryCategory = day.categories[0];
                   const colors = getCategoryColor(primaryCategory);
-                  
+
                   // For multiple categories, make it more vibrant
                   if (day.categories.length > 1) {
                     return `${colors.bg} ${colors.border} border-2`;
                   }
-                  
+
                   return `${colors.bg} ${colors.border} border`;
                 };
-                
+
                 return (
                   <div
                     key={index}
-                    className={`aspect-square p-1 border rounded transition-colors ${
-                      day.date === 0
-                        ? "border-transparent"
-                        : getDayBackgroundColor()
-                    }`}
+                    className={`aspect-square p-1 border rounded transition-colors ${day.date === 0
+                      ? "border-transparent"
+                      : getDayBackgroundColor()
+                      }`}
                   >
                     {day.date > 0 && (
                       <>
