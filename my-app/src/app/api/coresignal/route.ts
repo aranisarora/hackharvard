@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+const CORESIGNAL_API_BASE = "https://api.coresignal.com/cdapi/v2";
+
 type Experience = {
   title: string;
   company_name: string;
@@ -45,327 +47,278 @@ type CoreSignalProfile = {
   linkedin_url?: string | null;
 };
 
-const dummyProfiles: CoreSignalProfile[] = [
-  {
-    id: 719911355,
-    source: "linkedin",
-    name: "Jonathan Patterson",
-    first_name: "Jonathan",
-    last_name: "Patterson",
-    headline: "Art Director at Rivington Creative",
-    location: "New York, NY",
-    country: "United States",
-    industry: "Design",
-    experience: [
-      {
-        title: "Senior Graphic Designer",
-        company_name: "Lemon Studio",
-        company_id: 10101,
-        location: "New York, NY",
-        start_date: "2020-03",
-        end_date: null,
-        is_current: true,
-        description: "Leads web and brand design projects for lifestyle brands.",
-      },
-      {
-        title: "Graphic Designer",
-        company_name: "Loboco Company",
-        company_id: 10102,
-        location: "New York, NY",
-        start_date: "2018-03",
-        end_date: "2020-03",
-        is_current: false,
-        description: "Delivered packaging and motion assets for DTC launches.",
-      },
-    ],
-    education: [
-      {
-        school_name: "Wabare University",
-        degree: "Bachelor of Design",
-        field_of_study: "Web Designing",
-        start_date: "2014",
-        end_date: "2017",
-      },
-    ],
-    skills: [
-      { name: "Management" },
-      { name: "Digital Marketing" },
-      { name: "Negotiation" },
-      { name: "Creative Thinking" },
-      { name: "Leadership" },
-    ],
-    languages: ["English", "German (basic)", "Spanish (basic)"],
-    certifications: [
-      { name: "Adobe Certified Expert", issuer: "Adobe", issue_date: "2021-02" },
-    ],
-    created_at: "2024-01-10T10:00:00Z",
-    updated_at: "2024-11-02T11:00:00Z",
-    linkedin_url: "https://www.linkedin.com/in/jonathan-patterson-design",
-  },
-  {
-    id: 719911356,
-    source: "linkedin",
-    name: "Nelly Smith",
-    first_name: "Nelly",
-    last_name: "Smith",
-    headline: "Graphic Designer at Stepping Stone Advertising",
-    location: "New York, NY",
-    country: "United States",
-    industry: "Marketing",
-    experience: [
-      {
-        title: "Senior Graphic Design Specialist",
-        company_name: "Stepping Stone Advertising",
-        company_id: 10103,
-        location: "New York, NY",
-        start_date: "2020-02",
-        end_date: null,
-        is_current: true,
-        description: "Owns creative direction for multi-channel campaigns.",
-      },
-      {
-        title: "Graphic Design Specialist",
-        company_name: "Stepping Stone Advertising",
-        company_id: 10103,
-        location: "New York, NY",
-        start_date: "2018-02",
-        end_date: "2020-02",
-        is_current: false,
-        description: "Delivered pitch decks and social assets for B2C launches.",
-      },
-    ],
-    education: [
-      {
-        school_name: "Rochester Institute of Technology",
-        degree: "Bachelor of Fine Arts in Graphic Design",
-        field_of_study: "Graphic Design",
-        start_date: "2014",
-        end_date: "2018",
-      },
-    ],
-    skills: [
-      { name: "Illustrator" },
-      { name: "Photoshop" },
-      { name: "Figma" },
-      { name: "After Effects" },
-      { name: "Brand Systems" },
-    ],
-    languages: ["English"],
-    certifications: [
-      { name: "Adobe Certified Expert", issuer: "Adobe", issue_date: "2022-05" },
-    ],
-    created_at: "2024-02-01T10:00:00Z",
-    updated_at: "2024-11-05T10:30:00Z",
-    linkedin_url: "https://www.linkedin.com/in/nelly-smith",
-  },
-  {
-    id: 719911357,
-    source: "linkedin",
-    name: "Patricia Flores",
-    first_name: "Patricia",
-    last_name: "Flores",
-    headline: "Product Designer",
-    location: "Chicago, IL",
-    country: "United States",
-    industry: "Design",
-    experience: [
-      {
-        title: "Product Designer",
-        company_name: "Riverside Labs",
-        company_id: 10104,
-        location: "Chicago, IL",
-        start_date: "2019-06",
-        end_date: null,
-        is_current: true,
-        description: "Designs end-to-end experiences for B2B SaaS workflows.",
-      },
-      {
-        title: "UX Designer",
-        company_name: "Northloop",
-        company_id: 10105,
-        location: "Chicago, IL",
-        start_date: "2016-03",
-        end_date: "2019-05",
-        is_current: false,
-        description: "Led research and prototyping for mobile growth features.",
-      },
-    ],
-    education: [
-      {
-        school_name: "University of Illinois",
-        degree: "Bachelor of Arts",
-        field_of_study: "Human-Computer Interaction",
-        start_date: "2012",
-        end_date: "2016",
-      },
-    ],
-    skills: [
-      { name: "Product Discovery" },
-      { name: "Wireframing" },
-      { name: "Prototyping" },
-      { name: "Usability Testing" },
-    ],
-    languages: ["English", "Spanish"],
-    certifications: null,
-    created_at: "2024-03-15T09:00:00Z",
-    updated_at: "2024-10-28T15:00:00Z",
-    linkedin_url: "https://www.linkedin.com/in/patricia-flores",
-  },
-  {
-    id: 719911358,
-    source: "linkedin",
-    name: "Sophia Isa",
-    first_name: "Sophia",
-    last_name: "Isa",
-    headline: "Marketing Designer",
-    location: "San Francisco, CA",
-    country: "United States",
-    industry: "Marketing",
-    experience: [
-      {
-        title: "Marketing Designer",
-        company_name: "Cascade Growth",
-        company_id: 10106,
-        location: "San Francisco, CA",
-        start_date: "2021-01",
-        end_date: null,
-        is_current: true,
-        description: "Creates conversion-focused landing pages and ads.",
-      },
-      {
-        title: "Visual Designer",
-        company_name: "Brightworks",
-        company_id: 10107,
-        location: "San Francisco, CA",
-        start_date: "2018-06",
-        end_date: "2020-12",
-        is_current: false,
-        description: "Shipped brand refreshes and web design systems.",
-      },
-    ],
-    education: [
-      {
-        school_name: "ArtCenter College of Design",
-        degree: "Bachelor of Design",
-        field_of_study: "Communication Design",
-        start_date: "2014",
-        end_date: "2018",
-      },
-    ],
-    skills: [
-      { name: "Visual Design" },
-      { name: "Brand Strategy" },
-      { name: "Campaign Design" },
-      { name: "Figma" },
-      { name: "Illustrator" },
-    ],
-    languages: ["English", "French"],
-    certifications: [
-      { name: "Google UX Design", issuer: "Google", issue_date: "2023-04" },
-    ],
-    created_at: "2024-04-12T09:30:00Z",
-    updated_at: "2024-10-20T14:00:00Z",
-    linkedin_url: "https://www.linkedin.com/in/sophia-isa",
-  },
-  {
-    id: 719911359,
-    source: "linkedin",
-    name: "Samuel Lee",
-    first_name: "Samuel",
-    last_name: "Lee",
-    headline: "Senior Product Designer",
-    location: "Austin, TX",
-    country: "United States",
-    industry: "Technology",
-    experience: [
-      {
-        title: "Senior Product Designer",
-        company_name: "Pathforge",
-        company_id: 10108,
-        location: "Austin, TX",
-        start_date: "2022-04",
-        end_date: null,
-        is_current: true,
-        description: "Owns design for onboarding and growth surfaces.",
-      },
-      {
-        title: "Product Designer",
-        company_name: "Loop Systems",
-        company_id: 10109,
-        location: "Austin, TX",
-        start_date: "2019-02",
-        end_date: "2022-03",
-        is_current: false,
-        description: "Led multi-platform design for logistics tooling.",
-      },
-    ],
-    education: [
-      {
-        school_name: "University of Texas at Austin",
-        degree: "BS",
-        field_of_study: "Informatics",
-        start_date: "2012",
-        end_date: "2016",
-      },
-    ],
-    skills: [
-      { name: "Systems Thinking" },
-      { name: "Interaction Design" },
-      { name: "Design Systems" },
-      { name: "Figma" },
-    ],
-    languages: ["English", "Korean"],
-    certifications: null,
-    created_at: "2024-05-01T12:00:00Z",
-    updated_at: "2024-10-15T09:00:00Z",
-    linkedin_url: "https://www.linkedin.com/in/samuel-lee-design",
-  },
-];
-
 function normalizeInput(input?: string | null, fallback = "") {
   return typeof input === "string" && input.trim().length > 0
     ? input.trim()
     : fallback;
 }
 
+/**
+ * Transform CoreSignal employee data to our profile format
+ */
+function transformEmployeeData(employeeData: any): CoreSignalProfile {
+  // Extract name
+  const firstName = employeeData.first_name || "";
+  const lastName = employeeData.last_name || "";
+  const fullName = employeeData.full_name || 
+    (firstName && lastName ? `${firstName} ${lastName}` : null) ||
+    employeeData.name || null;
+
+  // Transform experience
+  const experience: Experience[] = (employeeData.experience || []).map((exp: any) => ({
+    title: exp.position_title || exp.title || "",
+    company_name: exp.company_name || "",
+    company_id: exp.company_id || null,
+    location: exp.location || null,
+    start_date: exp.date_from ? formatDate(exp.date_from) : null,
+    end_date: exp.date_to ? formatDate(exp.date_to) : null,
+    is_current: exp.active_experience === 1 || exp.is_current === true || !exp.date_to,
+    description: exp.description || null,
+  }));
+
+  // Transform education
+  const education: Education[] = (employeeData.education || []).map((edu: any) => ({
+    school_name: edu.institution_name || edu.school_name || "",
+    degree: edu.degree || null,
+    field_of_study: edu.field_of_study || null,
+    start_date: edu.date_from_year ? String(edu.date_from_year) : null,
+    end_date: edu.date_to_year ? String(edu.date_to_year) : null,
+  }));
+
+  // Transform skills
+  let skills: Array<{ name: string }> | string[] = [];
+  if (employeeData.skills && Array.isArray(employeeData.skills)) {
+    skills = employeeData.skills.map((skill: any) => 
+      typeof skill === "string" ? { name: skill } : { name: skill.name || skill }
+    );
+  } else if (employeeData.inferred_skills) {
+    const skillArray = Array.isArray(employeeData.inferred_skills) 
+      ? employeeData.inferred_skills 
+      : employeeData.inferred_skills.split(",").map((s: string) => s.trim());
+    skills = skillArray.map((skill: string) => ({ name: skill }));
+  }
+
+  // Transform certifications
+  const certifications: Certification[] | null = (employeeData.certifications || []).map((cert: any) => ({
+    name: cert.title || cert.name || "",
+    issuer: cert.issuer || null,
+    issue_date: cert.date_from ? formatDate(cert.date_from) : null,
+  }));
+
+  // Transform languages
+  const languages: string[] | null = (employeeData.languages || []).map((lang: any) => 
+    typeof lang === "string" ? lang : lang.language || ""
+  ).filter(Boolean);
+
+  return {
+    id: employeeData.id || 0,
+    source: "linkedin",
+    name: fullName,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    headline: employeeData.headline || null,
+    location: employeeData.location_full || employeeData.location || null,
+    country: employeeData.location_country || null,
+    industry: employeeData.industry || null,
+    experience,
+    education,
+    skills,
+    languages: languages && languages.length > 0 ? languages : null,
+    certifications: certifications && certifications.length > 0 ? certifications : null,
+    created_at: employeeData.created_at || new Date().toISOString(),
+    updated_at: employeeData.updated_at || employeeData.changed_at || new Date().toISOString(),
+    linkedin_url: employeeData.linkedin_url || null,
+  };
+}
+
+/**
+ * Format date from various CoreSignal formats to YYYY-MM
+ */
+function formatDate(date: any): string | null {
+  if (!date) return null;
+  
+  if (typeof date === "string") {
+    // Try to parse various date formats
+    const dateStr = date.trim();
+    // If already in YYYY-MM format
+    if (/^\d{4}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    // If in YYYY-MM-DD format, extract YYYY-MM
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr.substring(0, 7);
+    }
+    // Try to parse as Date
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+  
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
+    const CORESIGNAL_API_KEY = process.env.CORE_SIGNAL_API_KEY;
+    
+    if (!CORESIGNAL_API_KEY) {
+      console.error("[CoreSignal] API key not configured");
+      return NextResponse.json(
+        { error: "CoreSignal API key not configured" },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
-    const experience_title = normalizeInput(body?.experience_title, "Product Designer");
-    const experience_company_name = normalizeInput(
-      body?.experience_company_name,
-      "Pathforge"
+    const experience_title = normalizeInput(body?.experience_title, "");
+    const experience_company_name = normalizeInput(body?.experience_company_name, "");
+
+    if (!experience_title) {
+      return NextResponse.json(
+        { error: "experience_title is required" },
+        { status: 400 }
+      );
+    }
+
+    console.log("[CoreSignal] Searching for employees:", {
+      experience_title,
+      experience_company_name,
+    });
+
+    // Step 1: Search for employee IDs
+    // CoreSignal expects a flat structure with experience_title and experience_company_name
+    const searchBody: any = {
+      experience_title: experience_title,
+    };
+
+    // Add company filter if provided
+    if (experience_company_name) {
+      searchBody.experience_company_name = experience_company_name;
+    }
+
+    // Note: CoreSignal API doesn't accept 'limit' in the request body
+    // We'll limit results client-side after receiving the response
+
+    console.log("[CoreSignal] Search request body:", searchBody);
+
+    const searchResponse = await fetch(
+      `${CORESIGNAL_API_BASE}/employee_base/search/filter`,
+      {
+        method: "POST",
+        headers: {
+          apikey: CORESIGNAL_API_KEY,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchBody),
+      }
     );
 
-    const ids = dummyProfiles.slice(0, 5).map((profile) => profile.id);
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error("[CoreSignal] Search error:", errorText);
+      return NextResponse.json(
+        {
+          error: "Failed to search employees",
+          details: errorText,
+        },
+        { status: searchResponse.status }
+      );
+    }
 
-    // Simulate CoreSignal search + collect pipeline with dummy data
+    const employeeIds = await searchResponse.json();
+    
+    // Validate response is an array
+    if (!Array.isArray(employeeIds)) {
+      console.error("[CoreSignal] Invalid search response format:", employeeIds);
+      return NextResponse.json(
+        { error: "Invalid response format from CoreSignal search" },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[CoreSignal] Found ${employeeIds.length} employee IDs`);
+
+    if (employeeIds.length === 0) {
+      return NextResponse.json({
+        experience_title,
+        experience_company_name,
+        filter: {
+          ids: [],
+          total: 0,
+        },
+        profiles: [],
+      });
+    }
+
+    // Step 2: Collect employee profiles (limit to 5 to save credits)
+    const idsToCollect = employeeIds.slice(0, 5);
+    console.log(`[CoreSignal] Collecting ${idsToCollect.length} profiles`);
+
+    const collectPromises = idsToCollect.map(async (employeeId: number) => {
+      try {
+        const collectResponse = await fetch(
+          `${CORESIGNAL_API_BASE}/employee_base/collect/${employeeId}`,
+          {
+            method: "GET",
+            headers: {
+              apikey: CORESIGNAL_API_KEY,
+              Accept: "application/json",
+            },
+          }
+        );
+
+        if (!collectResponse.ok) {
+          const errorText = await collectResponse.text();
+          console.error(`[CoreSignal] Collect error for ID ${employeeId}:`, errorText);
+          return null;
+        }
+
+        const employeeData = await collectResponse.json();
+        return transformEmployeeData(employeeData);
+      } catch (error) {
+        console.error(`[CoreSignal] Error collecting employee ${employeeId}:`, error);
+        return null;
+      }
+    });
+
+    const profileResults = await Promise.all(collectPromises);
+    const profiles = profileResults.filter((p): p is CoreSignalProfile => p !== null);
+
+    console.log(`[CoreSignal] Successfully collected ${profiles.length} profiles`);
+
     return NextResponse.json({
       experience_title,
       experience_company_name,
       filter: {
-        ids,
-        total: ids.length,
+        ids: idsToCollect,
+        total: employeeIds.length,
       },
-      profiles: dummyProfiles.slice(0, 5),
+      profiles,
     });
   } catch (error) {
+    console.error("[CoreSignal] Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch CoreSignal data" },
+      {
+        error: "Failed to fetch CoreSignal data",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
 }
 
 export async function GET() {
-  // Helpful for quick manual tests
   return NextResponse.json({
     message: "Use POST with experience_title and experience_company_name",
     samplePayload: {
       experience_title: "Product Designer",
       experience_company_name: "Pathforge",
     },
-    sampleProfiles: dummyProfiles.slice(0, 2),
   });
 }
-

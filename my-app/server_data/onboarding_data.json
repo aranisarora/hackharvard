@@ -1,0 +1,129 @@
+{
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hi there! 👋 Welcome to PathForge. I'll help you create a personalized career roadmap. Let's start with a few quick questions."
+    },
+    {
+      "role": "assistant",
+      "content": "What is your age?"
+    },
+    {
+      "role": "user",
+      "content": "18-24"
+    },
+    {
+      "role": "assistant",
+      "content": "Where are you currently located?"
+    },
+    {
+      "role": "user",
+      "content": "United States"
+    },
+    {
+      "role": "assistant",
+      "content": "What is your target job position?"
+    },
+    {
+      "role": "user",
+      "content": "Software Engineer"
+    },
+    {
+      "role": "assistant",
+      "content": "Do you have a specific target company in mind?"
+    },
+    {
+      "role": "user",
+      "content": "Google"
+    },
+    {
+      "role": "assistant",
+      "content": "What is your acceptable salary range?"
+    },
+    {
+      "role": "user",
+      "content": "$50k-$80k"
+    },
+    {
+      "role": "assistant",
+      "content": "How many hours per week can you dedicate to improving your CV and skills?"
+    },
+    {
+      "role": "user",
+      "content": "5-10 hours"
+    },
+    {
+      "role": "assistant",
+      "content": "When do you want to have a fully ready CV?"
+    },
+    {
+      "role": "user",
+      "content": "3 months"
+    },
+    {
+      "role": "assistant",
+      "content": "Great! Now, please upload your CV so I can better understand your background and create personalized questions for you."
+    },
+    {
+      "role": "user",
+      "content": "Here is the content of my uploaded CV/Resume:\n\nVennela Jonnala \r\nvjonnala@college.harvard.edu • (510) 896-0870 • LinkedIn \r\n \r\nEDUCATION \r\nHarvard College                             Cambridge, Massachusetts \r\nA.B., Computer Science & Economics                          Class of 2027 \r\nRelevant Coursework: Operating Systems, Advanced Data Structures & Algorithms, Artificial and Natural \r\nIntelligence, Statistics and Probability, Quantum Learning Theory, Compositionality of AI, Linear Algebra & \r\nVector Calculus, Functional Programming \r\nActivities: Harvard Ventures (Co-Director of VentureWorks Accelerator), Prod Cohort 3.0 (Member), Charles \r\nRiver Economics Labs (Quantitative Research Analyst) \r\n \r\nTECHNICAL SKILLS \r\nC++, Python, AWS (EC2, S3, CloudFormation), OCaml, TensorFlow, PyTorch, Java, React, Typescript, SQL / Postgres, \r\nJavaScript/HTML/CSS, Flyte, Airflow, Startup management / venture capital, Fullstack Web/App Development \r\n \r\nEXPERIENCE \r\nAmazon – Artificial General Intelligence (AGI) Org – Alexa Web Eureka   May–Aug 2024, May–Aug 2025 \r\nSoftware Development Engineering Intern                       Sunnyvale, CA \r\n● \r\nWorked on internal information retrieval infrastructure used by Alexa and Amazon LLMs (now integrated into AWS) \r\n● \r\nEngineered high-performance testing pipeline in Rust and Python on AWS to test and deploy large-scale search index \r\nmodels  \r\no Streamlined index generation, index deployments, and model evaluations \r\no Improved experimental velocity by 5x \r\n● \r\nIntroduced and productionalized Eureka’s third vertical which matches real web queries to similar declassified queries \r\no Enhanced Eureka’s search quality for millions of users, enables safe-traffic handling for Amazon LLMs \r\n● \r\nAmazon Future Engineer $40,000 Scholarship 2023 Recipient, spoke for SheBuilds Podcast hosted by AWS \r\nHarvard Ventures – Co-President                                  January 2025 – Present \r\nCambridge, MA                                          \r\n● \r\nLed Harvard’s largest student-run entrepreneurship club, connecting 500+ student founders across Harvard, MIT, and \r\nNortheastern \r\n● \r\nLed VentureWorks 2025 incubator – cohort of Harvard’s 8 best startups, over 50% of which raised >$1 million during or \r\nsince the incubator \r\no Mentored startup teams and organized weekly workshops, dinners, and networking events \r\nCharles River Economics Lab – Quantitative Research Analyst          September 2024 – Present \r\nCambridge, MA \r\n● \r\nDeveloped in-house unemployment forecasting model for Mass Department of Economic Research \r\n● \r\nEngineered scalable data processing workflows for large economic datasets (federal data, SEC filings, Google Trends) \r\n● \r\nDesigned and optimized Python workflows for ARIMA and OLS forecasting, automating ingestion of large economic \r\ndatasets \r\n● \r\nImplemented sentiment-analysis system for 10-Q reports using NLP techniques \r\n \r\nGeneral Catalyst VC Firm – Venture Fellow                          November 2023 – June 2025 \r\nCambridge, MA \r\n● \r\nSourced early-stage student-led startups for grants and pre-seed/seed investments \r\n● \r\nGrew internal founder database using web scraping / Python  \r\n● \r\nConducted due diligence on sourced deals, oversaw through deal pipeline \r\n● \r\nGC’s point-of-contact and advisor for early-stage startups in portfolio \r\n \r\nRUBI Financial Inc.  – Cofounder + Co-CEO                November 2023 – May 2024 \r\nCambridge, MA \r\n● \r\nSold B2B financial literacy software that legally fulfills financial literacy obligations of credit unions + banks \r\n● \r\nRaised 20K, deployed to two credit unions, $150K+ in LOIs, 1500+ user sign-ups, marketing partnership with $6B \r\ncompany ELF Beauty \r\n● \r\nProd Cohort 3.0 member – cohort of the top 50 U.S. college startups & #1 feeder to YC \r\n \r\n \r\n \r\n \r\n----------------Page (0) Break----------------\r\n"
+    },
+    {
+      "role": "assistant",
+      "content": "Thanks for uploading your CV (Meta_VJ (1).pdf)! Let me generate some personalized questions based on your profile..."
+    },
+    {
+      "role": "assistant",
+      "content": "Given your ambitious goal of becoming a Software Engineer at Google within three months, dedicating 5-10 hours a week, what specific aspect of Google's work or culture excites you most, and what do you anticipate will be your biggest challenge in reaching this target?"
+    },
+    {
+      "role": "user",
+      "content": "ok"
+    },
+    {
+      "role": "assistant",
+      "content": "With your limited time commitment, what specific technical skills or areas do you feel are most crucial for you to develop or strengthen to be competitive for Google, and what learning approach works best for you to maximize your progress?"
+    },
+    {
+      "role": "user",
+      "content": "ok"
+    },
+    {
+      "role": "assistant",
+      "content": "Beyond the initial role, what kind of impact or contribution are you most eager to make as a Software Engineer, and how do you envision this first step at Google aligning with your broader career vision?"
+    },
+    {
+      "role": "user",
+      "content": "ok"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! I have all the information I need to create your personalized career roadmap. Ready to generate it?"
+    }
+  ],
+  "hardcodedAnswers": {
+    "age": "18-24",
+    "location": "United States",
+    "targetPosition": "Software Engineer",
+    "targetCompany": "Google",
+    "salaryRange": "$50k-$80k",
+    "timePerWeek": "5-10 hours",
+    "targetDate": "3 months"
+  },
+  "personalizedAnswers": [
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "personalizedQuestions": [
+    "Given your ambitious goal of becoming a Software Engineer at Google within three months, dedicating 5-10 hours a week, what specific aspect of Google's work or culture excites you most, and what do you anticipate will be your biggest challenge in reaching this target?",
+    "With your limited time commitment, what specific technical skills or areas do you feel are most crucial for you to develop or strengthen to be competitive for Google, and what learning approach works best for you to maximize your progress?",
+    "Beyond the initial role, what kind of impact or contribution are you most eager to make as a Software Engineer, and how do you envision this first step at Google aligning with your broader career vision?"
+  ],
+  "cvFile": {
+    "name": "Meta_VJ (1).pdf",
+    "size": 161603,
+    "type": "application/pdf"
+  },
+  "timestamp": "2026-01-06T14:54:26.229Z"
+}

@@ -45,8 +45,26 @@ Generate a comprehensive roadmap with realistic tasks and timelines. Today is 20
 export async function POST(request: Request) {
   try {
     console.log("[Roadmap Generate] Starting roadmap generation...");
-    const { messages } = await request.json();
+    const { messages, onboardingData, resumes } = await request.json();
     console.log("[Roadmap Generate] Received messages:", messages?.length || 0);
+    console.log("[Roadmap Generate] Received onboarding data:", !!onboardingData);
+    console.log("[Roadmap Generate] Received resumes:", resumes?.length || 0);
+    
+    // Debug resume data
+    if (resumes && resumes.length > 0) {
+      console.log("[Roadmap Generate] === RESUME DATA DEBUG ===");
+      resumes.forEach((resume: any, idx: number) => {
+        console.log(`Resume ${idx + 1}:`, {
+          id: resume.id,
+          name: resume.name,
+          headline: resume.headline,
+          experienceCount: resume.experience?.length || 0,
+          educationCount: resume.education?.length || 0,
+          skillsCount: Array.isArray(resume.skills) ? resume.skills.length : 0,
+        });
+      });
+      console.log("[Roadmap Generate] === END RESUME DEBUG ===");
+    }
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       console.error("[Roadmap Generate] Invalid messages:", messages);
@@ -56,10 +74,61 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("[Roadmap Generate] Calling generateStructuredResponse...");
+    // Build enhanced system prompt with resume context
+    let enhancedPrompt = ROADMAP_GENERATION_SYSTEM_PROMPT;
+    
+    if (resumes && resumes.length > 0) {
+      console.log("[Roadmap Generate] Building resume context for LLM prompt...");
+      enhancedPrompt += `\n\n**RELEVANT RESUMES FROM SIMILAR PROFESSIONALS:**
+You have access to ${resumes.length} resume(s) from professionals who have worked in similar roles. Use these as reference points for what successful candidates in this role typically have:
+
+${resumes.slice(0, 5).map((resume: any, idx: number) => {
+        const experiences = resume.experience?.map((exp: any) => 
+          `${exp.title} at ${exp.company_name}${exp.description ? ` (${exp.description.substring(0, 100)}...)` : ""}`
+        ).join("; ") || "N/A";
+        
+        const educations = resume.education?.map((edu: any) => 
+          `${edu.degree || ""}${edu.field_of_study ? ` in ${edu.field_of_study}` : ""} from ${edu.school_name}`
+        ).join("; ") || "N/A";
+        
+        const skills = Array.isArray(resume.skills) 
+          ? resume.skills.map((s: any) => typeof s === "string" ? s : s.name).join(", ")
+          : "N/A";
+        
+        return `
+Resume ${idx + 1}:
+- Name: ${resume.name || "Unknown"}
+- Headline: ${resume.headline || "N/A"}
+- Location: ${resume.location || "N/A"}
+- Experience: ${experiences}
+- Education: ${educations}
+- Skills: ${skills}
+- Languages: ${resume.languages?.join(", ") || "N/A"}
+- Certifications: ${resume.certifications?.map((c: any) => c.name).join(", ") || "N/A"}
+`;
+      }).join("\n")}
+
+Use these resumes to inform what skills, experiences, and qualifications are typically needed for this role. Analyze the patterns across these resumes to identify common requirements.`;
+      console.log("[Roadmap Generate] Resume context added to prompt");
+    }
+
+    if (onboardingData?.hardcodedAnswers) {
+      const answers = onboardingData.hardcodedAnswers;
+      enhancedPrompt += `\n\n**USER ONBOARDING DATA:**
+- Target Position: ${answers.targetPosition || "Not specified"}
+- Target Company: ${answers.targetCompany || "Not specified"}
+- Time Available: ${answers.timePerWeek || "Not specified"}
+- Target Date: ${answers.targetDate || "Not specified"}
+- Salary Range: ${answers.salaryRange || "Not specified"}
+- Location: ${answers.location || "Not specified"}
+- Age: ${answers.age || "Not specified"}
+`;
+    }
+
+    console.log("[Roadmap Generate] Calling generateStructuredResponse with enhanced prompt...");
     // Use structured output to ensure valid response format
     const result = await generateStructuredResponse(messages, {
-      systemPrompt: ROADMAP_GENERATION_SYSTEM_PROMPT,
+      systemPrompt: enhancedPrompt,
       schema: RoadmapGenerationSchema,
     });
     console.log("[Roadmap Generate] Structured response received");
