@@ -11,15 +11,28 @@ import { cn } from "@/lib/utils";
 export function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/chatbot/dashboard",
+  const { messages, sendMessage, status, error } = useChat({
     onError: (error) => {
       console.error("Chatbot error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+    },
+    onResponse: (response) => {
+      console.log("Chatbot response received:", response.status, response.statusText);
+    },
+    onFinish: (message) => {
+      console.log("Chatbot message finished:", message);
     },
   });
+
+  const isLoading = status === "streaming";
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -48,19 +61,24 @@ export function FloatingChatbot() {
     setIsMinimized(!isMinimized);
   };
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input || !input.trim() || isLoading) return;
-    handleSubmit(e);
+    
+    const message = input.trim();
+    setInput("");
+    
     // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
+    
+    await sendMessage({ text: message });
   };
 
   // Handle textarea auto-resize
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleInputChange(e);
+    setInput(e.target.value);
     // Auto-resize textarea
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
@@ -145,7 +163,12 @@ export function FloatingChatbot() {
                           : "bg-muted text-foreground"
                       )}
                     >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      <p className="whitespace-pre-wrap">
+                        {message.parts
+                          ?.filter((p: any) => p.type === "text")
+                          .map((p: any) => p.text)
+                          .join("") || ""}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -157,6 +180,14 @@ export function FloatingChatbot() {
                         <span className="h-2 w-2 bg-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                         <span className="h-2 w-2 bg-foreground/50 rounded-full animate-bounce"></span>
                       </div>
+                    </div>
+                  </div>
+                )}
+                {error && (
+                  <div className="flex justify-start">
+                    <div className="bg-destructive/10 text-destructive rounded-lg px-4 py-2 text-sm max-w-[80%]">
+                      <p className="font-medium">Error:</p>
+                      <p>{error.message || "Failed to send message. Please try again."}</p>
                     </div>
                   </div>
                 )}

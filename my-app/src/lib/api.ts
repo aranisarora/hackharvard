@@ -242,6 +242,7 @@ export async function sendOnboardingMessage(
 // Roadmap Generation API
 export async function generateRoadmap(messages: Array<{
   role: "user" | "assistant";
+  content?: string;
   parts?: Array<{ type: string; text: string }>;
 }>) {
   return fetchAPI<{

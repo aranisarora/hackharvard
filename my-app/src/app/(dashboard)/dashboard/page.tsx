@@ -291,24 +291,39 @@ export default function DashboardPage() {
                 <CardContent>
                   <Progress value={category.progress} className="h-2 mb-4" />
                   <div className="space-y-2">
-                    {category.tasks.map((task: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm">
-                        {task.completed ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                        ) : (
-                          <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <span
-                          className={
-                            task.completed
-                              ? "text-muted-foreground line-through"
-                              : "text-foreground"
-                          }
-                        >
-                          {task.title}
-                        </span>
-                      </div>
-                    ))}
+                    {category.tasks.map((task: any, idx: number) => {
+                      // Find matching roadmap task to get dates
+                      const roadmapTask = roadmapTasks.find(
+                        (rt: any) => rt.title === task.title && rt.category === category.id
+                      );
+                      const deadline = roadmapTask?.endDate || roadmapTask?.deadline;
+                      
+                      return (
+                        <div key={idx} className="flex items-center justify-between gap-2 text-sm">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {task.completed ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <span
+                              className={
+                                task.completed
+                                  ? "text-muted-foreground line-through"
+                                  : "text-foreground"
+                              }
+                            >
+                              {task.title}
+                            </span>
+                          </div>
+                          {deadline && !task.completed && (
+                            <span className="text-xs text-muted-foreground flex-shrink-0">
+                              {new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <Button variant="ghost" size="sm" className="mt-4 w-full" asChild>
                     <Link href="/roadmap">View all tasks</Link>

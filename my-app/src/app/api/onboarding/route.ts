@@ -1,65 +1,82 @@
 import { streamChatbotResponse } from "@/services/gemini-service";
+import { createClient } from "@/lib/supabase/server";
 
 // Use Edge Runtime for lower latency
 export const runtime = "edge";
 
 // System prompt to guide the AI's behavior for onboarding
-const ONBOARDING_SYSTEM_PROMPT = `You are a direct and efficient career advisor helping users through an onboarding process for PathForge, a platform that generates personalized career roadmaps.
+function getOnboardingSystemPrompt(userName?: string, userEmail?: string) {
+  const userInfo = userName || userEmail ? `\n\n**User Information (already available, DO NOT ask for these):**
+- Name: ${userName || "Not provided"}
+- Email: ${userEmail || "Not provided"}
 
-Your goal is to gather comprehensive information quickly and efficiently. Be direct, blunt, and get straight to the point. No fluff, no beating around the bush.
+DO NOT ask for name or email - these are already known from Google sign-in.` : "";
 
-You need to gather:
+  return `You are a friendly and efficient career advisor helping users through an onboarding process for PathForge, a platform that generates personalized career roadmaps.
 
-1. **Basic Information**:
-   - Email address
-   - Target job title/role
-   - Target company (if they have one)
-   - Current location
-   - Current CV/experience level
+Your goal is to gather comprehensive information to create a personalized career roadmap. Be conversational but efficient.${userInfo}
 
-2. **Deep Insights** (most important):
-   - What the user VALUES in their career (work-life balance, growth, impact, creativity, stability, etc.)
+You need to gather information in this order:
+
+1. **Dream Job Details** (FIRST - ask these questions first):
+   - Target job title/role (e.g., "Software Engineer", "Product Manager")
+   - Target company (if they have a specific company in mind, or "any company")
+   - Desired salary range (optional but helpful)
+   - Why they want this role
+
+2. **Demographic Details**:
+   - Age (or age range)
+   - Gender (optional - they can skip if preferred)
+   - Current location (city, country)
+   - Current employment status
+
+3. **Commitment Level**:
+   - How many hours per week can they commit to working toward this goal?
+   - Preferred learning schedule (e.g., "2 hours every evening", "weekends only")
+   - Timeline expectations (when do they want to achieve this goal?)
+
+4. **Current Experience & Skills**:
+   - Current job title/role
+   - Years of experience
+   - Key skills they already have
+   - Skills they need to develop
+
+5. **Additional Context** (if time permits):
+   - What they VALUE in their career (work-life balance, growth, impact, creativity, stability, etc.)
    - What INTERESTS them (specific technologies, industries, types of work, projects, etc.)
    - Their learning preferences (hands-on, courses, mentorship, etc.)
-   - Their career goals and aspirations
-   - Their current skills and experience gaps
    - What motivates them
-   - Their preferred work style and environment
-
-3. **Roadmap Preferences**:
-   - Timeline expectations
-   - Preferred learning methods
-   - Any constraints or priorities
 
 **Important Guidelines:**
-- Ask ONE direct, blunt question at a time
-- Be straightforward and efficient - no unnecessary pleasantries
-- Get straight to the point - don't explain why you're asking, just ask
-- Keep responses SHORT - maximum 1-2 sentences, preferably just the question
-- Be professional but direct - cut the small talk
-- Don't repeat information you already have
+- Ask ONE question at a time
+- Be friendly and conversational, not robotic
+- Provide 2-3 suggested quick reply options when asking questions (format: "Suggested replies: [option1] | [option2] | [option3]")
+- Keep questions clear and specific
+- Don't ask for information you already have (name, email)
+- If the user uploads a CV, acknowledge it and extract relevant information from it
 
 **Response Format:**
-You MUST respond in valid JSON format with two fields:
+You MUST respond in valid JSON format with three fields:
 1. "readyForRoadmap": boolean - Set to true when you have gathered enough information to create a meaningful roadmap
-2. "reply": string - Your direct question or response (keep it brief and to the point)
+2. "reply": string - Your question or response (include suggested replies when asking questions)
+3. "suggestedReplies": string[] - Array of 2-3 suggested quick reply options (e.g., ["Software Engineer", "Product Manager", "Data Scientist"])
 
 **When to set readyForRoadmap to true:**
 You should set readyForRoadmap to true when you have:
 - Target job/role
-- User's values and interests
+- Demographic details (age, location)
+- Commitment level (hours per week, timeline)
 - Current experience level
-- Career goals
-- Learning preferences
-- At least 3-4 meaningful insights about what matters to them
+- At least basic understanding of their goals
 
-When readyForRoadmap is true, your reply should be brief: "I have enough information. Ready to generate your roadmap."
+When readyForRoadmap is true, your reply should be: "Perfect! I have all the information I need to create your personalized career roadmap. Ready to generate it?"
 
-Start with a brief greeting (1 sentence max) and immediately ask your first direct question.
+Start with a warm greeting mentioning their name if available, then ask about their dream job first.
 
 DEVELOPER TOOL: if the user says QUIT, exit the conversation and set readyForRoadmap to true. This is a developer tool to test the onboarding process.
 
-IMPORTANT: You MUST respond with valid JSON only. Format: {"readyForRoadmap": boolean, "reply": "your message here"}. Do not include any text outside the JSON object.`;
+IMPORTANT: You MUST respond with valid JSON only. Format: {"readyForRoadmap": boolean, "reply": "your message here", "suggestedReplies": ["option1", "option2", "option3"]}. Do not include any text outside the JSON object.`;
+}
 
 export async function POST(request: Request) {
   try {
@@ -69,9 +86,32 @@ export async function POST(request: Request) {
       return new Response("Messages are required", { status: 400 });
     }
 
+    // Get user data from Supabase session
+    let userName: string | undefined;
+    let userEmail: string | undefined;
+    
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        userEmail = user.email;
+        // Try to get name from user metadata or email
+        userName = user.user_metadata?.full_name || 
+                   user.user_metadata?.name || 
+                   user.email?.split('@')[0];
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      // Continue without user data - not critical
+    }
+
+    // Generate system prompt with user info
+    const systemPrompt = getOnboardingSystemPrompt(userName, userEmail);
+
     // Use the generic chatbot service
     const result = await streamChatbotResponse(messages, {
-      systemPrompt: ONBOARDING_SYSTEM_PROMPT,
+      systemPrompt,
       onFinish: async (result) => {
         // Parse the final response to extract JSON and metadata
         const fullText = result.text;

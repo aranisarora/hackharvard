@@ -8,11 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Send, Upload, FileText, Loader2, Route } from "lucide-react";
 import { generateRoadmap, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  id: string;
+  suggestedReplies?: string[];
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [showCvUpload, setShowCvUpload] = useState(false);
   const [readyForRoadmap, setReadyForRoadmap] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
@@ -20,14 +28,47 @@ export default function OnboardingPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [userName, setUserName] = useState<string>("");
 
   // Local state for input
   const [localInput, setLocalInput] = useState("");
-  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string; id: string }>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingCV, setIsUploadingCV] = useState(false);
+
+  // Fetch user data on mount
+  useEffect(() => {
+    async function fetchUserData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const name = user.user_metadata?.full_name || 
+                       user.user_metadata?.name || 
+                       user.email?.split('@')[0] || 
+                       "there";
+          setUserName(name);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    }
+    fetchUserData();
+  }, [supabase]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setLocalInput(e.target.value);
+  };
+
+  const handleSuggestedReply = (reply: string) => {
+    setLocalInput(reply);
+    // Auto-submit after a brief delay
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        const event = new Event('submit', { bubbles: true, cancelable: true });
+        form.dispatchEvent(event);
+      }
+    }, 100);
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,6 +131,7 @@ export default function OnboardingPage() {
         
         // Try to parse JSON as it streams in
         try {
+          // Updated regex to also match suggestedReplies
           const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
@@ -98,7 +140,11 @@ export default function OnboardingPage() {
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMsgId
-                    ? { ...msg, content: parsed.reply }
+                    ? { 
+                        ...msg, 
+                        content: parsed.reply,
+                        suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
+                      }
                     : msg
                 )
               );
@@ -119,7 +165,11 @@ export default function OnboardingPage() {
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
-                ? { ...msg, content: parsed.reply || accumulatedText }
+                ? { 
+                    ...msg, 
+                    content: parsed.reply || accumulatedText,
+                    suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
+                  }
                 : msg
             )
           );
@@ -160,7 +210,13 @@ export default function OnboardingPage() {
         content: message.content,
         id: Date.now().toString(),
       };
-      setMessages((prev) => [...prev, userMsg]);
+      
+      // Capture current messages before updating
+      let currentMessages: Message[] = [];
+      setMessages((prev) => {
+        currentMessages = prev;
+        return [...prev, userMsg];
+      });
       setIsLoading(true);
       
       // Create assistant message placeholder for streaming
@@ -173,16 +229,19 @@ export default function OnboardingPage() {
       setMessages((prev) => [...prev, assistantMsg]);
       
       try {
+        // Use captured messages plus the new user message
+        const messagesForAPI = [...currentMessages, userMsg];
+        
         const response = await fetch("/api/onboarding", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: [...messages, userMsg].map((msg) => ({
+            messages: messagesForAPI.map((msg) => ({
               role: msg.role,
               content: msg.content,
             })),
           }),
-        });
+        })
         
         if (!response.ok) {
           throw new Error("Failed to get response");
@@ -214,7 +273,11 @@ export default function OnboardingPage() {
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMsgId
-                      ? { ...msg, content: parsed.reply }
+                      ? { 
+                          ...msg, 
+                          content: parsed.reply,
+                          suggestedReplies: parsed.suggestedReplies || []
+                        }
                       : msg
                   )
                 );
@@ -235,7 +298,11 @@ export default function OnboardingPage() {
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMsgId
-                  ? { ...msg, content: parsed.reply || accumulatedText }
+                  ? { 
+                      ...msg, 
+                      content: parsed.reply || accumulatedText,
+                      suggestedReplies: parsed.suggestedReplies || []
+                    }
                   : msg
               )
             );
@@ -273,10 +340,126 @@ export default function OnboardingPage() {
   // Send initial message on mount
   useEffect(() => {
     if (!isInitialized && messages.length === 0) {
-      append({ role: "user", content: "Hello" });
       setIsInitialized(true);
+      // Trigger the first bot message
+      const initialMessage = { role: "user" as const, content: "Start" };
+      const userMsg = {
+        role: "user" as const,
+        content: initialMessage.content,
+        id: Date.now().toString(),
+      };
+      
+      setMessages([userMsg]);
+      setIsLoading(true);
+      
+      // Create assistant message placeholder for streaming
+      const assistantMsgId = (Date.now() + 1).toString();
+      const assistantMsg = {
+        role: "assistant" as const,
+        content: "",
+        id: assistantMsgId,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      
+      // Call the API
+      fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [userMsg].map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        }),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error("Failed to get response");
+          }
+          
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let accumulatedText = "";
+          
+          if (!reader) {
+            throw new Error("No response body");
+          }
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedText += chunk;
+            
+            try {
+              const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.reply) {
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMsgId
+                        ? { 
+                            ...msg, 
+                            content: parsed.reply,
+                            suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
+                          }
+                        : msg
+                    )
+                  );
+                }
+              }
+            } catch (e) {
+              // JSON not complete yet
+            }
+          }
+          
+          // Final parse
+          try {
+            const jsonMatch = accumulatedText.match(/\{[\s\S]*"readyForRoadmap"[\s\S]*"reply"[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMsgId
+                    ? { 
+                        ...msg, 
+                        content: parsed.reply || accumulatedText,
+                        suggestedReplies: Array.isArray(parsed.suggestedReplies) ? parsed.suggestedReplies : []
+                      }
+                    : msg
+                )
+              );
+              if (parsed.readyForRoadmap === true) {
+                setReadyForRoadmap(true);
+              }
+            }
+          } catch (e) {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMsgId
+                  ? { ...msg, content: accumulatedText }
+                  : msg
+              )
+            );
+          }
+        })
+        .catch((error) => {
+          console.error("Error sending initial message:", error);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId
+                ? { ...msg, content: "Sorry, there was an error. Please try again." }
+                : msg
+            )
+          );
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
-  }, [isInitialized, messages.length, append]);
+  }, [isInitialized, messages.length]);
 
 
   // Auto-scroll to bottom when messages change
@@ -292,10 +475,12 @@ export default function OnboardingPage() {
   };
 
   const handleCvUploadClick = () => {
-    fileInputRef.current?.click();
+    if (!isUploadingCV && !readyForRoadmap) {
+      fileInputRef.current?.click();
+    }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type (PDF, DOC, DOCX)
@@ -304,16 +489,55 @@ export default function OnboardingPage() {
         alert("Please upload a PDF, DOC, or DOCX file");
         return;
       }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        alert("File size exceeds 10MB limit. Please upload a smaller file.");
+        return;
+      }
+
+      setIsUploadingCV(true);
       setCvFile(file);
-      // Send message about CV upload
-      append({ 
-        role: "user", 
-        content: `I've uploaded my CV: ${file.name}` 
-      });
+
+      try {
+        // Upload CV to server
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/cv/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to upload CV");
+        }
+
+        // Send message about CV upload
+        append({ 
+          role: "user", 
+          content: `I've uploaded my CV: ${file.name}` 
+        });
+      } catch (error) {
+        console.error("Error uploading CV:", error);
+        alert("Failed to upload CV. Please try again.");
+        setCvFile(null);
+      } finally {
+        setIsUploadingCV(false);
+      }
     }
   };
 
   const handleGenerateRoadmap = async () => {
+    console.log("Generate roadmap button clicked");
+    console.log("Current messages:", messages);
+    
+    if (!messages || messages.length === 0) {
+      alert("Please have a conversation first before generating a roadmap.");
+      return;
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStep("Analyzing conversation...");
@@ -341,15 +565,23 @@ export default function OnboardingPage() {
       // Call the API with all messages - transform to expected format
       const formattedMessages = messages
         .filter((msg) => msg.role === "user" || msg.role === "assistant")
+        .filter((msg) => msg.content && msg.content.trim()) // Filter out empty messages
         .map((msg) => ({
           role: msg.role,
           content: msg.content,
         }));
       
+      console.log("Formatted messages for API:", formattedMessages);
+      
+      if (formattedMessages.length === 0) {
+        throw new Error("No valid messages to generate roadmap from");
+      }
+      
       const result = await generateRoadmap(formattedMessages);
+      console.log("Roadmap generation result:", result);
       
       if (!result.success || !result.data) {
-        throw new Error("Failed to generate roadmap");
+        throw new Error("Failed to generate roadmap - no data returned");
       }
 
       // Step 5: Save data (90%)
@@ -372,7 +604,8 @@ export default function OnboardingPage() {
       router.push("/dashboard");
     } catch (error) {
       console.error("Error generating roadmap:", error);
-      alert("Failed to generate roadmap. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      alert(`Failed to generate roadmap: ${errorMessage}`);
       setIsGenerating(false);
       setGenerationProgress(0);
       setGenerationStep("");
@@ -381,10 +614,6 @@ export default function OnboardingPage() {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (cvFile) {
-      setCvFile(null);
-      setShowCvUpload(false);
-    }
     handleSubmit(e);
   };
 
@@ -404,19 +633,36 @@ export default function OnboardingPage() {
             if (!msg.content) return null;
             
             return (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={msg.id} className="space-y-2">
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground"
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
                 </div>
+                {/* Show suggested replies for assistant messages */}
+                {msg.role === "assistant" && msg.suggestedReplies && msg.suggestedReplies.length > 0 && (
+                  <div className="flex justify-start gap-2 flex-wrap">
+                    {msg.suggestedReplies.map((reply, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuggestedReply(reply)}
+                        className="text-xs"
+                      >
+                        {reply}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -463,10 +709,16 @@ export default function OnboardingPage() {
                       </p>
                     </div>
                     <Button
-                      onClick={handleGenerateRoadmap}
-                      disabled={isGenerating}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Button clicked, calling handleGenerateRoadmap");
+                        handleGenerateRoadmap();
+                      }}
+                      disabled={isGenerating || messages.length === 0}
                       size="lg"
                       className="w-full sm:w-auto min-w-[200px]"
+                      type="button"
                     >
                       <Route className="h-4 w-4 mr-2" />
                       Generate Roadmap
@@ -476,53 +728,53 @@ export default function OnboardingPage() {
               </div>
             ) : (
               <>
-                {showCvUpload && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-4">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleCvUploadClick}
-                        className="flex items-center gap-2"
-                      >
+                {/* CV Upload - Always visible */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-4">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCvUploadClick}
+                      className="flex items-center gap-2"
+                      disabled={isUploadingCV || isLoading || readyForRoadmap}
+                    >
+                      {isUploadingCV ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
                         <Upload className="h-4 w-4" />
-                        {cvFile ? cvFile.name : "Upload CV"}
-                      </Button>
-                      {cvFile && (
-                        <span className="text-sm text-muted-foreground flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          {cvFile.name}
-                        </span>
                       )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Accepted formats: PDF, DOC, DOCX
-                    </p>
+                      {cvFile ? cvFile.name : "Upload CV"}
+                    </Button>
+                    {cvFile && (
+                      <span className="text-sm text-muted-foreground flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        {cvFile.name}
+                      </span>
+                    )}
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Accepted formats: PDF, DOC, DOCX (max 10MB)
+                  </p>
+                </div>
                 <form onSubmit={onSubmit} className="flex gap-2">
-                          <Textarea
-                            value={localInput}
-                            onChange={handleInputChange}
-                            onKeyPress={handleKeyPress}
-                            placeholder={
-                              showCvUpload
-                                ? "Upload your CV above or type a message..."
-                                : "Type your message..."
-                            }
-                            className="min-h-[60px] max-h-[120px] resize-none"
-                            disabled={isLoading || readyForRoadmap}
-                          />
-                          <Button
-                            type="submit"
-                            disabled={isLoading || !localInput.trim() || readyForRoadmap}
+                  <Textarea
+                    value={localInput}
+                    onChange={handleInputChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="min-h-[60px] max-h-[120px] resize-none"
+                    disabled={isLoading || readyForRoadmap || isUploadingCV}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !localInput.trim() || readyForRoadmap || isUploadingCV}
                     size="lg"
                     className="shrink-0"
                   >
