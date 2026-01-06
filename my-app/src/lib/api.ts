@@ -191,6 +191,61 @@ export async function saveRoadmap(tasks: Array<{
   });
 }
 
+// CoreSignal (dummy) API
+export type CoreSignalProfile = {
+  id: number;
+  source: string;
+  name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  headline: string | null;
+  location: string | null;
+  country: string | null;
+  industry: string | null;
+  experience: Array<{
+    title: string;
+    company_name: string;
+    company_id: number | null;
+    location: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    is_current: boolean;
+    description: string | null;
+  }>;
+  education: Array<{
+    school_name: string;
+    degree: string | null;
+    field_of_study: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
+  skills: Array<{ name: string }> | string[];
+  languages: string[] | null;
+  certifications: Array<{
+    name: string;
+    issuer: string | null;
+    issue_date: string | null;
+  }> | null;
+  created_at: string;
+  updated_at: string;
+  linkedin_url?: string | null;
+};
+
+export async function fetchCoreSignalProfiles(params: {
+  experience_title: string;
+  experience_company_name: string;
+}) {
+  return fetchAPI<{
+    experience_title: string;
+    experience_company_name: string;
+    filter: { ids: number[]; total: number };
+    profiles: CoreSignalProfile[];
+  }>("/coresignal", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
 // Auth API
 export async function login(email: string, password: string) {
   return fetchAPI<{

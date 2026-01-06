@@ -14,4 +14,3 @@ export async function GET(request: Request) {
   // Redirect to onboarding page
   return NextResponse.redirect(new URL(next, request.url))
 }
-

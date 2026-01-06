@@ -98,5 +98,12 @@
   .border-sidebar-border {
     border-color: hsl(var(--sidebar-border));
   }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 

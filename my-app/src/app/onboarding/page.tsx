@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Send, Upload, FileText, Loader2, Route } from "lucide-react";
-import { generateRoadmap, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -594,87 +593,55 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleGenerateRoadmap = async () => {
-    console.log("Generate roadmap button clicked");
-    console.log("Current messages:", messages);
-    
+  const extractTargetDetails = () => {
+    const combined = messages.map((m) => m.content).join(" ");
+    const jobRegexes = [
+      /(target|dream)\s+(?:job|role|position)\s*(?:is|:)?\s*([A-Za-z0-9 ,\-\/]{3,80})/i,
+      /as\s+(?:a|an)\s+([A-Za-z0-9 ,\-\/]{3,80})/i,
+    ];
+    const companyRegex =
+      /(?:at|@)\s+([A-Za-z0-9&.'\-]{2,80})(?:\b|$)/i;
+
+    let jobTitle = "Product Designer";
+    let company = "Pathforge";
+
+    for (const regex of jobRegexes) {
+      const match = combined.match(regex);
+      if (match && match[2]) {
+        jobTitle = match[2].trim();
+        break;
+      } else if (match && match[1]) {
+        jobTitle = match[1].trim();
+        break;
+      }
+    }
+
+    const companyMatch = combined.match(companyRegex);
+    if (companyMatch && companyMatch[1]) {
+      company = companyMatch[1].trim();
+    }
+
+    return { jobTitle, company };
+  };
+
+  const handleGenerateRoadmap = () => {
     if (!messages || messages.length === 0) {
       alert("Please have a conversation first before generating a roadmap.");
       return;
     }
 
     setIsGenerating(true);
-    setGenerationProgress(0);
-    setGenerationStep("Analyzing conversation...");
+    setGenerationProgress(30);
+    setGenerationStep("Fetching relevant CVs...");
 
-    try {
-      // Step 1: Analyze conversation (20%)
-      setGenerationProgress(20);
-      setGenerationStep("Analyzing your conversation and goals...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    const { jobTitle, company } = extractTargetDetails();
+    const params = new URLSearchParams({
+      jobTitle,
+      company,
+    });
 
-      // Step 2: Generate initial CV (40%)
-      setGenerationProgress(40);
-      setGenerationStep("Extracting your current CV...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Step 3: Generate target CV (60%)
-      setGenerationProgress(60);
-      setGenerationStep("Creating your target CV...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Step 4: Generate roadmap (80%)
-      setGenerationProgress(80);
-      setGenerationStep("Generating your personalized roadmap...");
-      
-      // Call the API with all messages - transform to expected format
-      const formattedMessages = messages
-        .filter((msg) => msg.role === "user" || msg.role === "assistant")
-        .filter((msg) => msg.content && msg.content.trim()) // Filter out empty messages
-        .map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-      
-      console.log("Formatted messages for API:", formattedMessages);
-      
-      if (formattedMessages.length === 0) {
-        throw new Error("No valid messages to generate roadmap from");
-      }
-      
-      const result = await generateRoadmap(formattedMessages);
-      console.log("Roadmap generation result:", result);
-      
-      if (!result.success || !result.data) {
-        throw new Error("Failed to generate roadmap - no data returned");
-      }
-
-      // Step 5: Save data (90%)
-      setGenerationProgress(90);
-      setGenerationStep("Saving your roadmap...");
-      
-      // Save the generated data to the API
-      await Promise.all([
-        saveCV(result.data.initialCV, result.data.targetCV),
-        saveRoadmap(result.data.roadmap.tasks),
-        saveDashboardData(result.data.dashboard),
-      ]);
-
-      // Step 6: Complete (100%)
-      setGenerationProgress(100);
-      setGenerationStep("Complete! Redirecting...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Navigate to dashboard
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Error generating roadmap:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      alert(`Failed to generate roadmap: ${errorMessage}`);
-      setIsGenerating(false);
-      setGenerationProgress(0);
-      setGenerationStep("");
-    }
+    // Navigate to the new CV preview flow
+    router.push(`/generate-roadmap?${params.toString()}`);
   };
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
