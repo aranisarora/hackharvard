@@ -143,7 +143,13 @@ const dummyProfiles: CoreSignalProfile[] = [
         end_date: "2018",
       },
     ],
-    skills: ["Illustrator", "Photoshop", "Figma", "After Effects", "Brand Systems"],
+    skills: [
+      { name: "Illustrator" },
+      { name: "Photoshop" },
+      { name: "Figma" },
+      { name: "After Effects" },
+      { name: "Brand Systems" },
+    ],
     languages: ["English"],
     certifications: [
       { name: "Adobe Certified Expert", issuer: "Adobe", issue_date: "2022-05" },

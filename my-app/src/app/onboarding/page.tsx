@@ -395,7 +395,18 @@ export default function OnboardingPage() {
         throw new Error("No valid messages to generate roadmap from");
       }
       
-      const result = await generateRoadmap(formattedMessages);
+      console.log("Calling generateRoadmap API...");
+
+      // Add timeout to prevent hanging - increased to 5 minutes as generation can take time
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out after 5 minutes")), 300000)
+      );
+
+      const result = await Promise.race([
+        generateRoadmap(formattedMessages),
+        timeoutPromise
+      ]) as Awaited<ReturnType<typeof generateRoadmap>>;
+
       console.log("Roadmap generation result:", result);
       
       if (!result.success || !result.data) {
