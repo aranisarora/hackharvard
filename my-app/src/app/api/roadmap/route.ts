@@ -114,6 +114,23 @@ const defaultRoadmapTasks = [
     endDate: "2025-02-28",
     isCompleted: false,
   },
+  {
+    id: "6",
+    category: "course",
+    title: "Advanced React Patterns",
+    description: "Master advanced React concepts including hooks, context, and performance optimization.",
+    checklist: [
+      { id: "1", text: "Watch 'Advanced Hooks' module", isCompleted: false },
+      { id: "2", text: "Complete 'Context API' project", isCompleted: false },
+      { id: "3", text: "Finish 'Performance' section", isCompleted: false },
+      { id: "4", text: "Pass final assessment", isCompleted: false },
+    ],
+    deadline: "2025-03-30",
+    startDate: "2025-03-01",
+    endDate: "2025-03-30",
+    isCompleted: false,
+    courseLink: "https://react.dev",
+  },
 ];
 
 export async function GET() {
@@ -121,8 +138,8 @@ export async function GET() {
   await new Promise((resolve) => setTimeout(resolve, 300));
 
   // Return stored roadmap or defaults
-  return NextResponse.json({ 
-    tasks: roadmapStore?.tasks || defaultRoadmapTasks 
+  return NextResponse.json({
+    tasks: roadmapStore?.tasks || defaultRoadmapTasks
   });
 }
 

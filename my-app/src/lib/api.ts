@@ -424,3 +424,17 @@ export async function getCoreSignalResumes(experienceTitle: string, experienceCo
   });
 }
 
+// Course Linking API
+export async function linkCourseAccount() {
+  return fetchAPI<{ percentage: number }>("/roadmap/link-account", {
+    method: "POST",
+  });
+}
+
+export async function updateCourseProgress(currentPercentage: number) {
+  return fetchAPI<{ percentage: number }>("/roadmap/update-progress", {
+    method: "POST",
+    body: JSON.stringify({ currentPercentage }),
+  });
+}
+

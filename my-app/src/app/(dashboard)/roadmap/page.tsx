@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, Circle, Calendar, ExternalLink, User, Mail } from "lucide-react";
-import { getRoadmapTasks, updateChecklistItem, updateTaskDates } from "@/lib/api";
+import { CheckCircle2, Circle, Calendar, ExternalLink, User, Mail, Link } from "lucide-react";
+import { getRoadmapTasks, updateChecklistItem, updateTaskDates, saveRoadmap } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CourseLinkButton } from "./CourseLinkButton";
 
 interface RoadmapTask {
   id: string;
@@ -85,6 +86,32 @@ export default function RoadmapPage() {
     }
   };
 
+  const handleChecklistUpdate = async (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean }>) => {
+    try {
+      // Calculate new completed state
+      const allCompleted = newChecklist.every((item) => item.isCompleted);
+
+      const newTasks = tasks.map((task) => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            checklist: newChecklist,
+            isCompleted: allCompleted,
+          };
+        }
+        return task;
+      });
+
+      setTasks(newTasks);
+
+      // Persist changes
+      await saveRoadmap(newTasks);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save progress update.");
+    }
+  };
+
   const handleDateChange = (taskId: string, field: 'deadline' | 'startDate' | 'endDate', value: string) => {
     setEditingDates(prev => ({
       ...prev,
@@ -101,7 +128,7 @@ export default function RoadmapPage() {
 
     try {
       await updateTaskDates(taskId, dates);
-      
+
       setTasks((prevTasks) =>
         prevTasks.map((task) => {
           if (task.id === taskId) {
@@ -128,10 +155,10 @@ export default function RoadmapPage() {
     if (task.isCompleted) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const startDate = task.startDate ? new Date(task.startDate) : null;
     const endDate = task.endDate ? new Date(task.endDate) : null;
-    
+
     if (startDate && endDate) {
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(0, 0, 0, 0);
@@ -139,7 +166,7 @@ export default function RoadmapPage() {
         return true;
       }
     }
-    
+
     // If no dates or dates don't match, check if any checklist items are in progress
     const hasInProgressItems = task.checklist.some(item => !item.isCompleted);
     const hasCompletedItems = task.checklist.some(item => item.isCompleted);
@@ -212,8 +239,8 @@ export default function RoadmapPage() {
           const inProgress = isTaskInProgress(task);
 
           return (
-            <Card 
-              key={task.id} 
+            <Card
+              key={task.id}
               className={`${task.isCompleted ? "opacity-75" : ""} ${inProgress ? "ring-2 ring-primary ring-offset-2 scale-[1.02] transition-transform" : ""}`}
             >
               <CardHeader>
@@ -229,6 +256,16 @@ export default function RoadmapPage() {
                       <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
                         {task.category}
                       </span>
+
+                      {task.category === "course" && (
+                        <div className="ml-auto">
+                          <CourseLinkButton
+                            taskId={task.id}
+                            checklist={task.checklist}
+                            onUpdate={handleChecklistUpdate}
+                          />
+                        </div>
+                      )}
                     </div>
                     <CardDescription>{task.description}</CardDescription>
                   </div>
@@ -272,6 +309,17 @@ export default function RoadmapPage() {
                         >
                           {item.text}
                         </span>
+                        {task.category === "course" && task.courseLink && (
+                          <a
+                            href={task.courseLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="ml-auto flex-shrink-0"
+                          >
+                            <Link className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
+                          </a>
+                        )}
                       </button>
                     ))}
                   </div>
