@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Send, Upload, FileText, Loader2, Route } from "lucide-react";
-import { generateRoadmap, saveCV, saveRoadmap, saveDashboardData, saveChatHistory } from "@/lib/api";
+import { generateRoadmap, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -350,7 +350,7 @@ export default function OnboardingPage() {
   const handleGenerateRoadmap = async () => {
     console.log("Generate roadmap button clicked");
     console.log("Current messages:", messages);
-
+    
     if (!messages || messages.length === 0) {
       alert("Please have a conversation first before generating a roadmap.");
       return;
@@ -378,20 +378,8 @@ export default function OnboardingPage() {
 
       // Step 4: Generate roadmap (80%)
       setGenerationProgress(80);
-      // Step 4: Generate roadmap (80%)
-      setGenerationProgress(80);
       setGenerationStep("Generating your personalized roadmap...");
-
-      // Save chat history first
-      try {
-        console.log("Saving chat history before roadmap generation...");
-        await saveChatHistory(messages);
-        console.log("Chat history saved successfully");
-      } catch (historyError) {
-        console.error("Failed to save chat history:", historyError);
-        // Continue with roadmap generation even if history save fails
-      }
-
+      
       // Call the API with all messages - transform to expected format
       const formattedMessages = messages
         .filter((msg) => msg.role === "user" || msg.role === "assistant")
@@ -400,27 +388,16 @@ export default function OnboardingPage() {
           role: msg.role,
           content: msg.content,
         }));
-
+      
       console.log("Formatted messages for API:", formattedMessages);
-
+      
       if (formattedMessages.length === 0) {
         throw new Error("No valid messages to generate roadmap from");
       }
-
-      console.log("Calling generateRoadmap API...");
-
-      // Add timeout to prevent hanging - increased to 5 minutes as generation can take time
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timed out after 5 minutes")), 300000)
-      );
-
-      const result = await Promise.race([
-        generateRoadmap(formattedMessages),
-        timeoutPromise
-      ]) as Awaited<ReturnType<typeof generateRoadmap>>;
-
+      
+      const result = await generateRoadmap(formattedMessages);
       console.log("Roadmap generation result:", result);
-
+      
       if (!result.success || !result.data) {
         throw new Error("Failed to generate roadmap - no data returned");
       }
@@ -428,13 +405,12 @@ export default function OnboardingPage() {
       // Step 5: Save data (90%)
       setGenerationProgress(90);
       setGenerationStep("Saving your roadmap...");
-
+      
       // Save the generated data to the API
       await Promise.all([
         saveCV(result.data.initialCV, result.data.targetCV),
         saveRoadmap(result.data.roadmap.tasks),
         saveDashboardData(result.data.dashboard),
-        // Chat history already saved
       ]);
 
       // Step 6: Complete (100%)
@@ -447,11 +423,6 @@ export default function OnboardingPage() {
     } catch (error) {
       console.error("Error generating roadmap:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      console.error("Error details:", {
-        message: errorMessage,
-        error,
-        stack: error instanceof Error ? error.stack : undefined
-      });
       alert(`Failed to generate roadmap: ${errorMessage}`);
       setIsGenerating(false);
       setGenerationProgress(0);
