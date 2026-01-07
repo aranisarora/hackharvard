@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Save, Info, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,35 +125,8 @@ export default function CVEditorPage() {
     }
   };
 
-  // Render diff view - show current CV with target additions highlighted
-  const renderDiffView = () => {
-    const diffs = diffWords(currentCV, targetCV);
-    
-    return (
-      <div className="whitespace-pre-wrap text-sm leading-relaxed font-sans">
-        {diffs.map((part, index) => {
-          if (part.added) {
-            // Target-only content - show in blue/grey to indicate missing
-            return (
-              <span 
-                key={index} 
-                className="bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border-b-2 border-blue-300 dark:border-blue-600"
-                title="This content is in the target CV but not in your current CV"
-              >
-                {part.value}
-              </span>
-            );
-          }
-          if (part.removed) {
-            // Current content that's not in target - show normally
-            return <span key={index}>{part.value}</span>;
-          }
-          // Common content
-          return <span key={index}>{part.value}</span>;
-        })}
-      </div>
-    );
-  };
+  const diffParts = useMemo(() => diffWords(currentCV, targetCV), [currentCV, targetCV]);
+  const targetHasText = Boolean(targetCV?.trim());
 
   if (isLoading) {
     return (
@@ -245,11 +218,11 @@ export default function CVEditorPage() {
             </div>
             <div className="flex items-center gap-3">
               <div className="w-4 h-4 rounded bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-300 dark:border-blue-600"></div>
-              <span className="text-muted-foreground">Target CV - Content to add (highlighted)</span>
+              <span className="text-muted-foreground">Forecasted CV additions - Highlighted inline within final CV</span>
             </div>
           </div>
           <div className="mt-3 text-xs text-muted-foreground">
-            💡 Tip: Click "Edit CV" to modify your current CV. Highlighted sections show what should be added from the target CV.
+            💡 Tip: Click "Edit CV" to modify your base CV. Inline highlights mark the forecasted additions in the final CV.
           </div>
         </CardContent>
       </Card>
@@ -279,7 +252,44 @@ export default function CVEditorPage() {
               />
             ) : (
               <div className="editing-controls min-h-[600px]">
-                {renderDiffView()}
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-semibold text-foreground">Forecasted CV</p>
+                    <p className="text-xs text-muted-foreground">
+                      We show the fully forecasted CV below; inline highlights mark the additions.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-background/60 p-6 text-sm leading-relaxed font-sans text-foreground min-h-[460px]">
+                    {targetHasText ? (
+                      <div className="whitespace-pre-wrap break-words">
+                        {diffParts.map((part, index) => {
+                          if (part.removed) {
+                            return null;
+                          }
+                          if (part.added) {
+                            return (
+                              <span
+                                key={`diff-added-${index}`}
+                                className="rounded-sm bg-blue-50 px-1 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200"
+                              >
+                                {part.value}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span key={`diff-${index}`}>{part.value}</span>
+                          );
+                        })}
+                      </div>
+                    ) : currentCV ? (
+                      <div className="whitespace-pre-wrap break-words">
+                        {currentCV}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Your saved CV will appear here once available.</span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

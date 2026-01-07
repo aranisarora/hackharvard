@@ -170,8 +170,8 @@ export async function saveRoadmap(tasks: Array<{
   category: string;
   title: string;
   description: string;
-  checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
-  deadline: string;
+  checklist?: Array<{ id: string; text: string; isCompleted: boolean }>;
+  deadline?: string;
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
@@ -296,6 +296,9 @@ export async function sendOnboardingMessage(
 }
 
 // Roadmap Generation API
+const ROADMAP_GENERATION_TIMEOUT_MS = 120_000;
+const ROADMAP_GENERATION_MAX_ATTEMPTS = 2;
+
 export async function generateRoadmap(
   messages: Array<{
     role: "user" | "assistant";
@@ -305,47 +308,89 @@ export async function generateRoadmap(
   onboardingData?: any,
   resumes?: any[]
 ) {
-  return fetchAPI<{
-    success: boolean;
-    data: {
-      initialCV: string;
-      targetCV: string;
-      roadmap: {
-        tasks: Array<{
-          id: string;
-          category: string;
-          title: string;
-          description: string;
-          checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
-          deadline: string;
-          isCompleted: boolean;
-          courseLink?: string;
-          mentor?: {
-            name: string;
-            title: string;
-            company: string;
-            email: string;
+  const body = JSON.stringify({ messages, onboardingData, resumes });
+
+  async function attemptRequest() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      ROADMAP_GENERATION_TIMEOUT_MS
+    );
+
+    try {
+      return await fetchAPI<{
+        success: boolean;
+        data: {
+          initialCV: string;
+          targetCV: string;
+          roadmap: {
+            tasks: Array<{
+              id: string;
+              category: string;
+              title: string;
+              description: string;
+              checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
+              deadline: string;
+              isCompleted: boolean;
+              courseLink?: string;
+              mentor?: {
+                name: string;
+                title: string;
+                company: string;
+                email: string;
+              };
+            }>;
           };
-        }>;
-      };
-      dashboard: {
-        user: { email: string; targetJob: string; targetCompany: string };
-        overallProgress: number;
-        categories: Array<{
-          id: string;
-          title: string;
-          icon: string;
-          color: string;
-          bgColor: string;
-          tasks: Array<{ title: string; completed: boolean }>;
-          progress: number;
-        }>;
-      };
-    };
-  }>("/roadmap/generate", {
-    method: "POST",
-    body: JSON.stringify({ messages, onboardingData, resumes }),
-  });
+          dashboard: {
+            user: { email: string; targetJob: string; targetCompany: string };
+            overallProgress: number;
+            categories: Array<{
+              id: string;
+              title: string;
+              icon: string;
+              color: string;
+              bgColor: string;
+              tasks: Array<{ title: string; completed: boolean }>;
+              progress: number;
+            }>;
+          };
+        };
+      }>("/roadmap/generate", {
+        method: "POST",
+        body,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= ROADMAP_GENERATION_MAX_ATTEMPTS; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.info(
+          `[Roadmap] Retrying generation (attempt ${attempt}) after timeout`
+        );
+      }
+      return await attemptRequest();
+    } catch (error) {
+      lastError = error;
+
+      if (
+        error instanceof Error &&
+        error.name === "AbortError" &&
+        attempt < ROADMAP_GENERATION_MAX_ATTEMPTS
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError ?? new Error("Roadmap generation failed");
 }
 
 // Chat History API

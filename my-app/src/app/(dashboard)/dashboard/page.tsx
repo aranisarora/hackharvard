@@ -16,6 +16,85 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Award: Award,
 };
 
+type CategoryColorConfig = {
+  dayBg: string;
+  dayBorder: string;
+  dayDot: string;
+  progressBar: string;
+  breakdownBg: string;
+  breakdownText: string;
+};
+
+const CATEGORY_COLOR_PALETTE: Record<string, CategoryColorConfig> = {
+  skills: {
+    dayBg: "bg-blue-500/20",
+    dayBorder: "border-blue-500",
+    dayDot: "bg-blue-500",
+    progressBar: "bg-blue-500",
+    breakdownBg: "bg-blue-500/20",
+    breakdownText: "text-blue-700 dark:text-blue-300",
+  },
+  projects: {
+    dayBg: "bg-emerald-500/20",
+    dayBorder: "border-emerald-500",
+    dayDot: "bg-emerald-500",
+    progressBar: "bg-emerald-500",
+    breakdownBg: "bg-emerald-500/20",
+    breakdownText: "text-emerald-700 dark:text-emerald-300",
+  },
+  certifications: {
+    dayBg: "bg-amber-500/20",
+    dayBorder: "border-amber-500",
+    dayDot: "bg-amber-500",
+    progressBar: "bg-amber-500",
+    breakdownBg: "bg-amber-500/20",
+    breakdownText: "text-amber-700 dark:text-amber-300",
+  },
+  experience: {
+    dayBg: "bg-purple-500/20",
+    dayBorder: "border-purple-500",
+    dayDot: "bg-purple-500",
+    progressBar: "bg-purple-500",
+    breakdownBg: "bg-purple-500/20",
+    breakdownText: "text-purple-700 dark:text-purple-300",
+  },
+  "cv-feedback": {
+    dayBg: "bg-pink-500/20",
+    dayBorder: "border-pink-500",
+    dayDot: "bg-pink-500",
+    progressBar: "bg-pink-500",
+    breakdownBg: "bg-pink-500/20",
+    breakdownText: "text-pink-700 dark:text-pink-300",
+  },
+  awards: {
+    dayBg: "bg-indigo-500/20",
+    dayBorder: "border-indigo-500",
+    dayDot: "bg-indigo-500",
+    progressBar: "bg-indigo-500",
+    breakdownBg: "bg-indigo-500/20",
+    breakdownText: "text-indigo-700 dark:text-indigo-300",
+  },
+  course: {
+    dayBg: "bg-teal-500/20",
+    dayBorder: "border-teal-500",
+    dayDot: "bg-teal-500",
+    progressBar: "bg-teal-500",
+    breakdownBg: "bg-teal-500/20",
+    breakdownText: "text-teal-700 dark:text-teal-300",
+  },
+};
+
+const DEFAULT_CATEGORY_COLORS: CategoryColorConfig = {
+  dayBg: "bg-slate-500/20",
+  dayBorder: "border-slate-500",
+  dayDot: "bg-slate-500",
+  progressBar: "bg-slate-500",
+  breakdownBg: "bg-slate-500/20",
+  breakdownText: "text-muted-foreground",
+};
+
+const getCategoryColors = (category: string) => CATEGORY_COLOR_PALETTE[category] || DEFAULT_CATEGORY_COLORS;
+
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [roadmapTasks, setRoadmapTasks] = useState<any[]>([]);
@@ -83,17 +162,6 @@ export default function DashboardPage() {
     }
 
     return { calendarDays, currentMonth, currentYear };
-  };
-
-  const getCategoryColor = (category: string) => {
-    const categoryMap: { [key: string]: { bg: string; border: string } } = {
-      skills: { bg: "bg-blue-500/20", border: "border-blue-500" },
-      projects: { bg: "bg-green-500/20", border: "border-green-500" },
-      certifications: { bg: "bg-yellow-500/20", border: "border-yellow-500" },
-      experience: { bg: "bg-purple-500/20", border: "border-purple-500" },
-      "cv-feedback": { bg: "bg-pink-500/20", border: "border-pink-500" },
-    };
-    return categoryMap[category] || { bg: "bg-gray-500/20", border: "border-gray-500" };
   };
 
   const getCategoryProgressSegments = () => {
@@ -222,24 +290,26 @@ export default function DashboardPage() {
             <div className="relative h-4 bg-muted rounded-full overflow-hidden">
               {progressSegments.length > 0 ? (
                 <div className="flex h-full">
-                  {progressSegments.map((segment: any, index: number) => {
-                    const colorMap: { [key: string]: string } = {
-                      skills: "bg-blue-500",
-                      experience: "bg-purple-500",
-                      certifications: "bg-yellow-500",
-                      awards: "bg-pink-500",
-                      "cv-feedback": "bg-pink-500",
-                    };
-                    const bgColor = colorMap[segment.id] || "bg-primary";
-                    return (
-                      <div
-                        key={segment.id}
-                        className={bgColor}
-                        style={{ width: `${Math.min(segment.barPercentage, 100)}%` }}
-                        title={`${segment.title}: ${segment.categoryProgress}% of ${overallProgress}%`}
-                      />
-                    );
-                  })}
+                  <div
+                    className="flex h-full"
+                    style={{ width: `${Math.max(0, Math.min(overallProgress, 100))}%` }}
+                  >
+                    {progressSegments.map((segment: any) => {
+                      const colors = getCategoryColors(segment.id);
+                      return (
+                        <div
+                          key={`${segment.id}-${segment.title}`}
+                          className={`${colors.progressBar} h-full`}
+                          style={{ width: `${Math.min(segment.barPercentage, 100)}%` }}
+                          title={`${segment.title}: ${segment.categoryProgress}% of ${overallProgress}%`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div
+                    className="bg-slate-200 h-full"
+                    style={{ width: `${Math.max(0, 100 - overallProgress)}%` }}
+                  />
                 </div>
               ) : (
                 <Progress value={overallProgress} className="h-4" />
@@ -249,16 +319,9 @@ export default function DashboardPage() {
               <div className="flex flex-wrap gap-2 text-xs">
                 <span className="text-muted-foreground font-medium">Breakdown:</span>
                 {progressSegments.map((segment: any) => {
-                  const colorMap: { [key: string]: { bg: string; text: string } } = {
-                    skills: { bg: "bg-blue-500/20", text: "text-blue-700 dark:text-blue-400" },
-                    experience: { bg: "bg-purple-500/20", text: "text-purple-700 dark:text-purple-400" },
-                    certifications: { bg: "bg-yellow-500/20", text: "text-yellow-700 dark:text-yellow-400" },
-                    awards: { bg: "bg-pink-500/20", text: "text-pink-700 dark:text-pink-400" },
-                    "cv-feedback": { bg: "bg-pink-500/20", text: "text-pink-700 dark:text-pink-400" },
-                  };
-                  const colors = colorMap[segment.id] || { bg: "bg-primary/20", text: "text-primary" };
+                  const colors = getCategoryColors(segment.id);
                   return (
-                    <span key={segment.id} className={`px-2 py-1 rounded ${colors.bg} ${colors.text}`}>
+                    <span key={`${segment.id}-${segment.title}`} className={`px-2 py-1 rounded ${colors.breakdownBg} ${colors.breakdownText}`}>
                       {segment.title}: {segment.contributionToOverall}% of {overallProgress}%
                     </span>
                   );
@@ -373,26 +436,19 @@ export default function DashboardPage() {
                 </div>
               ))}
               {calendarDays.map((day, index) => {
-                // Get the primary category color for the day (first category or blend if multiple)
                 const getDayBackgroundColor = () => {
-                  if (day.categories.length === 0) return "bg-background border-muted";
-
-                  // If multiple categories, use a gradient or the first one
+                  if (day.categories.length === 0) return "bg-background border-muted border";
                   const primaryCategory = day.categories[0];
-                  const colors = getCategoryColor(primaryCategory);
+                  const colors = getCategoryColors(primaryCategory);
+                  const borderWidthClass = day.categories.length > 1 ? "border-2" : "border";
 
-                  // For multiple categories, make it more vibrant
-                  if (day.categories.length > 1) {
-                    return `${colors.bg} ${colors.border} border-2`;
-                  }
-
-                  return `${colors.bg} ${colors.border} border`;
+                  return `${colors.dayBg} ${colors.dayBorder} ${borderWidthClass}`;
                 };
 
                 return (
                   <div
                     key={index}
-                    className={`aspect-square p-1 border rounded transition-colors ${day.date === 0
+                    className={`aspect-square p-1 rounded transition-colors ${day.date === 0
                       ? "border-transparent"
                       : getDayBackgroundColor()
                       }`}
@@ -402,19 +458,11 @@ export default function DashboardPage() {
                         <div className="font-medium text-sm mb-0.5">{day.date}</div>
                         <div className="flex flex-wrap gap-0.5 justify-center items-center min-h-[12px]">
                           {day.categories.slice(0, 4).map((cat) => {
-                            const colors = getCategoryColor(cat);
-                            const colorMap: { [key: string]: string } = {
-                              skills: "bg-blue-500",
-                              projects: "bg-green-500",
-                              certifications: "bg-yellow-500",
-                              experience: "bg-purple-500",
-                              "cv-feedback": "bg-pink-500",
-                            };
-                            const solidColor = colorMap[cat] || "bg-gray-500";
+                            const colors = getCategoryColors(cat);
                             return (
                               <div
                                 key={cat}
-                                className={`w-2 h-2 rounded-full ${solidColor} border border-white/50`}
+                                className={`w-2 h-2 rounded-full ${colors.dayDot} border border-white/50`}
                                 title={cat}
                               />
                             );
@@ -434,10 +482,10 @@ export default function DashboardPage() {
                 <span className="text-muted-foreground font-medium">Legend:</span>
                 <div className="flex flex-col gap-1">
                   {Array.from(new Set(roadmapTasks.map(t => t.category).filter(Boolean))).map((cat) => {
-                    const colors = getCategoryColor(cat);
+                    const colors = getCategoryColors(cat);
                     return (
                       <div key={cat} className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${colors.bg} ${colors.border} border`} />
+                        <div className={`w-2 h-2 rounded-full ${colors.dayDot}`} />
                         <span className="capitalize">{cat.replace(/-/g, " ")}</span>
                       </div>
                     );

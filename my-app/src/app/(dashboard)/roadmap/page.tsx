@@ -14,8 +14,8 @@ interface RoadmapTask {
   category: string;
   title: string;
   description: string;
-  checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
-  deadline: string;
+  checklist?: Array<{ id: string; text: string; isCompleted: boolean }>;
+  deadline?: string;
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
@@ -55,7 +55,8 @@ export default function RoadmapPage() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    const item = task.checklist.find((c) => c.id === itemId);
+    const checklist = task.checklist ?? [];
+    const item = checklist.find((c) => c.id === itemId);
     if (!item) return;
 
     const newIsCompleted = !item.isCompleted;
@@ -66,7 +67,7 @@ export default function RoadmapPage() {
       setTasks((prevTasks) =>
         prevTasks.map((task) => {
           if (task.id === taskId) {
-            const updatedChecklist = task.checklist.map((item) =>
+            const updatedChecklist = (task.checklist ?? []).map((item) =>
               item.id === itemId
                 ? { ...item, isCompleted: newIsCompleted }
                 : item
@@ -168,8 +169,9 @@ export default function RoadmapPage() {
     }
 
     // If no dates or dates don't match, check if any checklist items are in progress
-    const hasInProgressItems = task.checklist.some(item => !item.isCompleted);
-    const hasCompletedItems = task.checklist.some(item => item.isCompleted);
+    const checklist = task.checklist || [];
+    const hasInProgressItems = checklist.some(item => !item.isCompleted);
+    const hasCompletedItems = checklist.some(item => item.isCompleted);
     return hasInProgressItems && hasCompletedItems;
   };
 
@@ -232,10 +234,11 @@ export default function RoadmapPage() {
 
       <div className="space-y-4">
         {tasks.map((task) => {
-          const completedChecklist = task.checklist.filter((c) => c.isCompleted).length;
-          const checklistProgress = Math.round(
-            (completedChecklist / task.checklist.length) * 100
-          );
+          const checklist = task.checklist || [];
+          const completedChecklist = checklist.filter((c) => c.isCompleted).length;
+          const checklistProgress = checklist.length
+            ? Math.round((completedChecklist / checklist.length) * 100)
+            : 0;
           const inProgress = isTaskInProgress(task);
 
           return (
@@ -261,7 +264,7 @@ export default function RoadmapPage() {
                         <div className="ml-auto">
                           <CourseLinkButton
                             taskId={task.id}
-                            checklist={task.checklist}
+                            checklist={task.checklist ?? []}
                             onUpdate={handleChecklistUpdate}
                           />
                         </div>
@@ -277,7 +280,7 @@ export default function RoadmapPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Checklist Progress</span>
                       <span className="text-sm text-muted-foreground">
-                        {completedChecklist}/{task.checklist.length}
+                        {completedChecklist}/{checklist.length}
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -289,7 +292,7 @@ export default function RoadmapPage() {
                   </div>
 
                   <div className="space-y-2">
-                    {task.checklist.map((item) => (
+                    {checklist.map((item) => (
                       <button
                         key={item.id}
                         onClick={() => toggleChecklistItem(task.id, item.id)}

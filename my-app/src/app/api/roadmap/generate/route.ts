@@ -1,9 +1,51 @@
 import { generateStructuredResponse } from "@/services/gemini-service";
 import { RoadmapGenerationSchema } from "@/features/roadmap/schemas";
 import { NextResponse } from "next/server";
+import type { ZodTypeAny } from "zod";
 
 // Use Edge Runtime for lower latency
 export const runtime = "edge";
+
+type ConversationMessage = {
+  role: string;
+  content?: string;
+};
+
+function extractUploadedResumeText(messages?: ConversationMessage[]): string | null {
+  if (!messages || messages.length === 0) return null;
+
+  const resumeSegments: string[] = [];
+
+  const indicatorRegex = /(uploaded[^:]*cv|uploaded[^:]*resume|resume file|cv file|curriculum vitae|resume content)/i;
+  const markerRegex = /(Here is the content[^:]*:)/i;
+
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+    const rawContent = message.content?.trim();
+    if (!rawContent) continue;
+
+    const markerMatch = rawContent.match(markerRegex);
+    const cleaned =
+      markerMatch && markerMatch.index !== undefined
+        ? rawContent.slice(markerMatch.index + markerMatch[0].length).trim()
+        : rawContent;
+
+    const normalized = cleaned.replace(/\r/g, "").trim();
+    if (!normalized) continue;
+
+    const hasIndicator = indicatorRegex.test(rawContent);
+
+    // Avoid capturing short responses unless they clearly contain resume information
+    if (!hasIndicator && normalized.length < 200) {
+      continue;
+    }
+
+    resumeSegments.push(normalized);
+  }
+
+  if (resumeSegments.length === 0) return null;
+  return resumeSegments.join("\n\n");
+}
 
 // System prompt for roadmap generation
 const ROADMAP_GENERATION_SYSTEM_PROMPT = `You are an expert career advisor. Analyze the conversation and generate a detailed roadmap and target CV.
@@ -13,8 +55,8 @@ IMPORTANT: You MUST provide substantive content. Do not return empty strings or 
 Generate a comprehensive roadmap with realistic tasks and timelines. Today is 2026-01-06.
 
 **For initialCV and targetCV:**
-- initialCV: Extract and summarize the user's current experience, education, and skills from the conversation
-- targetCV: Create a detailed description of the ideal CV needed to achieve their goal
+- initialCV: We'll supply the verbatim resume text we extracted from the conversation and should not be rewritten.
+- targetCV: Output the COMPLETE, FINAL CV document the user should have. This must be the actual CV text (not feedback or descriptions). Start from the user's existing CV and ADD the missing skills, experiences, certifications, and accomplishments inline where they belong. Output ONLY the CV content itself—no explanations, no commentary, no bullet points describing what to add.
 
 **For Roadmap Tasks:**
 - Generate at least 3-5 actionable tasks to bridge the gap between current and target state
@@ -44,7 +86,31 @@ Generate a comprehensive roadmap with realistic tasks and timelines. Today is 20
 - If included: use realistic email addresses or leave blank
 - profileImage: use valid HTTPS URLs or omit
 
-**Critical:** Provide real, meaningful data from the conversation. Never return empty strings for key fields like initialCV, targetCV, or targetJob.`;
+**Critical:** Provide real, meaningful data from the conversation. Never return empty strings for key fields like 'initialCV', 'targetCV', or 'targetJob'.
+**Important:** We'll replace the 'initialCV' field with the raw resume text extracted earlier. The 'targetCV' must be the COMPLETE final CV document (not descriptions or feedback)—output it as actual resume text ready to be displayed.`;
+
+const TARGET_CV_SECTION_PROMPT = `**TARGET CV ONLY**
+Output the COMPLETE forecasted CV as plain text. This is NOT feedback—it is the actual final CV document the user should have after making all improvements.
+
+RULES:
+- Start from the user's uploaded CV and integrate the recommended additions directly into the text.
+- Add new skills, certifications, experiences, and accomplishments where they naturally belong.
+- Do NOT include any explanatory text, commentary, headers like "Recommended:", or meta-descriptions.
+- The output must read exactly like a real CV/resume document.
+
+Return a JSON object containing only "targetCV" with the full CV text.`;
+
+const ROADMAP_TASKS_SECTION_PROMPT = `**ROADMAP TASKS ONLY**
+Use the guidance from the main system prompt under "For Roadmap Tasks" and "For dates" to create concrete, measurable tasks that bridge the gap between this user's current resume and the target CV.
+Return a JSON object containing only "roadmap" with a "tasks" array that includes the required deadlines and checklist details.`;
+
+const DASHBOARD_SECTION_PROMPT = `**DASHBOARD ONLY**
+Extract the targetJob, targetCompany, email, realistic overallProgress percentage, and logical categories as described in the system prompt under "For Dashboard".
+Return a JSON object containing only "dashboard" with the expected schema fields. No roadmap or target CV details should be produced in this pass.`;
+
+const TargetCVSegmentSchema = RoadmapGenerationSchema.pick({ targetCV: true });
+const RoadmapSegmentSchema = RoadmapGenerationSchema.pick({ roadmap: true });
+const DashboardSegmentSchema = RoadmapGenerationSchema.pick({ dashboard: true });
 
 
 
@@ -79,6 +145,12 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const extractedResumeText = extractUploadedResumeText(messages);
+    console.log(
+      "[Roadmap Generate] Extracted resume text length:",
+      extractedResumeText?.length ?? 0
+    );
 
     // Build enhanced system prompt with resume context
     let enhancedPrompt = ROADMAP_GENERATION_SYSTEM_PROMPT;
@@ -131,22 +203,70 @@ Use these resumes to inform what skills, experiences, and qualifications are typ
 `;
     }
 
-    console.log("[Roadmap Generate] Calling generateStructuredResponse with enhanced prompt...");
-    // Use structured output to ensure valid response format
-    const result = await generateStructuredResponse(messages, {
-      systemPrompt: enhancedPrompt,
-      schema: RoadmapGenerationSchema,
-    });
-    console.log("[Roadmap Generate] Structured response received");
+    const buildSegmentPrompt = (segmentTitle: string, instructions: string) =>
+      `${enhancedPrompt}\n\n${segmentTitle}\n${instructions}`;
 
-    // The response is already validated against the schema
-    const generatedData = result.object;
-    console.log("[Roadmap Generate] Generated data keys:", Object.keys(generatedData));
+    async function runSegment(
+      segmentLabel: string,
+      schema: ZodTypeAny,
+      instructions: string
+    ) {
+      console.log(`[Roadmap Generate] ${segmentLabel} segment starting...`);
+      const prompt = buildSegmentPrompt(segmentLabel, instructions);
+      const segmentResult = await generateStructuredResponse(messages, {
+        systemPrompt: prompt,
+        schema,
+        maxOutputTokens: 65536,
+      });
+      console.log(`[Roadmap Generate] ${segmentLabel} segment completed`);
+      return segmentResult;
+    }
+
+    const targetCVResult = await runSegment(
+      "Target CV",
+      TargetCVSegmentSchema,
+      TARGET_CV_SECTION_PROMPT
+    );
+    const roadmapResult = await runSegment(
+      "Roadmap tasks",
+      RoadmapSegmentSchema,
+      ROADMAP_TASKS_SECTION_PROMPT
+    );
+    const dashboardResult = await runSegment(
+      "Dashboard",
+      DashboardSegmentSchema,
+      DASHBOARD_SECTION_PROMPT
+    );
+
+    const targetCV = targetCVResult.object.targetCV || "";
+    const roadmap = roadmapResult.object.roadmap || { tasks: [] };
+    const dashboard =
+      dashboardResult.object.dashboard || {
+        user: { email: "", targetJob: "", targetCompany: "" },
+        overallProgress: 0,
+        categories: [],
+      };
+
+    const finalData = {
+      initialCV: extractedResumeText || "",
+      targetCV,
+      roadmap,
+      dashboard,
+    };
+
+    console.log(
+      "[Roadmap Generate] Final data assembled",
+      {
+        targetCVLength: targetCV.length,
+        taskCount: roadmap.tasks?.length ?? 0,
+        categoryCount: dashboard.categories?.length ?? 0,
+      }
+    );
 
     // Return the validated data
     return NextResponse.json({
       success: true,
-      data: generatedData,
+      data: finalData,
     });
   } catch (error) {
     console.error("Error in roadmap generation:", error);

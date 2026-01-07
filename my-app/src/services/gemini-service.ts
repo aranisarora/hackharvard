@@ -11,7 +11,7 @@ export interface GeminiOptions {
   systemPrompt: string;
   model?: string;
   temperature?: number;
-  maxTokens?: number;
+  maxOutputTokens?: number;
   onFinish?: (result: { text: string }) => void | Promise<void>;
 }
 
@@ -20,13 +20,13 @@ export interface StructuredOptions<T> {
   schema: z.ZodType<T>;
   model?: string;
   temperature?: number;
-  maxTokens?: number;
+  maxOutputTokens?: number;
 }
 
 // Default configuration
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const DEFAULT_TEMPERATURE = 0.7;
-const DEFAULT_MAX_TOKENS = 8192;
+const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
 
 /**
  * Initialize API key from environment
@@ -73,7 +73,7 @@ export async function streamChatbotResponse(
     systemPrompt,
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
-    maxTokens = DEFAULT_MAX_TOKENS,
+    maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
     onFinish,
   } = options;
 
@@ -90,7 +90,7 @@ export async function streamChatbotResponse(
     system: systemPrompt,
     messages: formattedMessages,
     temperature,
-    maxTokens,
+    maxOutputTokens,
     onFinish,
   });
 }
@@ -109,7 +109,7 @@ export async function generateTextResponse(
     systemPrompt,
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
-    maxTokens = DEFAULT_MAX_TOKENS,
+    maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
   } = options;
 
   initializeApiKey();
@@ -125,7 +125,7 @@ export async function generateTextResponse(
     system: systemPrompt,
     messages: formattedMessages,
     temperature,
-    maxTokens,
+    maxOutputTokens,
   });
 }
 
@@ -144,7 +144,7 @@ export async function generateStructuredResponse<T>(
     schema,
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
-    maxTokens = DEFAULT_MAX_TOKENS,
+    maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
   } = options;
 
   console.log("[Gemini Service] Initializing API key...");
@@ -158,7 +158,7 @@ export async function generateStructuredResponse<T>(
 
   console.log("[Gemini Service] Calling generateObject with model:", model);
   console.log("[Gemini Service] Message count:", formattedMessages.length);
-  console.log("[Gemini Service] Max tokens:", maxTokens);
+  console.log("[Gemini Service] Max tokens:", maxOutputTokens);
 
   const result = await generateObject({
     model: google(model),
@@ -166,7 +166,7 @@ export async function generateStructuredResponse<T>(
     messages: formattedMessages,
     schema,
     temperature,
-    maxTokens,
+    maxOutputTokens,
   });
 
   console.log("[Gemini Service] generateObject completed successfully");
