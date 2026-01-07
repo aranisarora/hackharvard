@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       systemPrompt,
       model,
       temperature,
-      maxTokens,
+      maxOutputTokens: maxTokens,
     });
 
     return NextResponse.json({

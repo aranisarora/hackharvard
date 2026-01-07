@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       systemPrompt,
       model,
       temperature,
-      maxTokens,
+      maxOutputTokens: maxTokens,
     });
 
     // Return the streaming response

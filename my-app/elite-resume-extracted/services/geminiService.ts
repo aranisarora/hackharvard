@@ -1,8 +1,8 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ResumeData } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+const genAI = new GoogleGenerativeAI(process.env.API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
 
 export const parseResumeText = async (
   rawText: string
@@ -22,73 +22,16 @@ export const parseResumeText = async (
     ${rawText}
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          title: { type: Type.STRING },
-          profileInfo: { type: Type.STRING },
-          education: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                yearRange: { type: Type.STRING },
-                degree: { type: Type.STRING },
-                institution: { type: Type.STRING },
-                description: { type: Type.STRING },
-              },
-              required: ["yearRange", "degree", "institution"]
-            }
-          },
-          skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          languages: { type: Type.ARRAY, items: { type: Type.STRING } },
-          contact: {
-            type: Type.OBJECT,
-            properties: {
-              phone: { type: Type.STRING },
-              email: { type: Type.STRING },
-              address: { type: Type.STRING },
-              website: { type: Type.STRING },
-            }
-          },
-          experience: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                yearRange: { type: Type.STRING },
-                role: { type: Type.STRING },
-                company: { type: Type.STRING },
-                description: { type: Type.STRING },
-              },
-              required: ["yearRange", "role", "company"]
-            }
-          },
-          achievements: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                yearRange: { type: Type.STRING },
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-              },
-              required: ["yearRange", "title"]
-            }
-          }
-        },
-        required: ["name", "title", "profileInfo", "education", "experience"]
-      }
     }
   });
 
-  const parsed = JSON.parse(response.text);
+  const response = await model.generateContent(prompt);
+  const responseText = response.response.text();
+  const parsed = JSON.parse(responseText);
   
   // Strict post-processing filter for forbidden phrases
   const cleanDescription = (desc: string) => {

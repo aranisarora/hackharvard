@@ -4,7 +4,7 @@ import { ResumeData } from '../types';
 
 interface ResumePreviewProps {
   data: ResumeData;
-  innerRef: React.RefObject<HTMLDivElement>;
+  innerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const ResumePreview: React.FC<ResumePreviewProps> = ({ data, innerRef }) => {

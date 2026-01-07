@@ -63,7 +63,7 @@ describe('GET /api/employees/collect/[id]', () => {
       });
 
       const request = mockRequest();
-      const response = await GET(request, { params: { id: employeeId } });
+      const response = await GET(request, { params: Promise.resolve({ id: employeeId }) });
       const responseData = await response.json();
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe('GET /api/employees/collect/[id]', () => {
       });
 
       const request = mockRequest();
-      const response = await GET(request, { params: { id: employeeId } });
+      const response = await GET(request, { params: Promise.resolve({ id: employeeId }) });
       const responseData = await response.json();
 
       expect(responseData).toEqual(mockEmployeeData);
@@ -154,7 +154,7 @@ describe('GET /api/employees/collect/[id]', () => {
       });
 
       const request = mockRequest();
-      const response = await GET(request, { params: { id: employeeId } });
+      const response = await GET(request, { params: Promise.resolve({ id: employeeId }) });
       const responseData = await response.json();
 
       expect(responseData.error).toBe('Failed to collect employee profile');
@@ -170,7 +170,7 @@ describe('GET /api/employees/collect/[id]', () => {
       );
 
       const request = mockRequest();
-      const response = await GET(request, { params: { id: employeeId } });
+      const response = await GET(request, { params: Promise.resolve({ id: employeeId }) });
       const responseData = await response.json();
 
       expect(responseData.error).toBe('Failed to collect employee profile');
@@ -189,7 +189,7 @@ describe('GET /api/employees/collect/[id]', () => {
       });
 
       const request = mockRequest();
-      const response = await GET(request, { params: { id: employeeId } });
+      const response = await GET(request, { params: Promise.resolve({ id: employeeId }) });
       const responseData = await response.json();
 
       expect(responseData.error).toBe('Failed to collect employee profile');

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -32,7 +32,7 @@ interface GenerationStep {
 
 type ProcessStep = "loading" | "extract" | "find" | "analyze" | "target" | "roadmap" | "complete";
 
-export default function GenerateRoadmapPage() {
+function GenerateRoadmapContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobTitle = searchParams.get("jobTitle") || "Your Dream Role";
@@ -775,5 +775,20 @@ export default function GenerateRoadmapPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function GenerateRoadmapPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <GenerateRoadmapContent />
+    </Suspense>
   );
 }

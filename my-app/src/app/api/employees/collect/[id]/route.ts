@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const CORESIGNAL_API_BASE = "https://api.coresignal.com/cdapi/v2";
 
@@ -9,8 +9,8 @@ const CORESIGNAL_API_BASE = "https://api.coresignal.com/cdapi/v2";
  * This is the expensive request that returns complete profile data.
  */
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const CORESIGNAL_API_KEY = process.env.CORE_SIGNAL_API_KEY;
@@ -22,7 +22,7 @@ export async function GET(
       );
     }
 
-    const employeeId = params.id;
+    const { id: employeeId } = await params;
 
     if (!employeeId) {
       return NextResponse.json(
