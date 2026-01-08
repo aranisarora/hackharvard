@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-const PDFParser = require("pdf2json");
+
+// Dynamically import pdf2json only if available (not in Edge Runtime)
+let PDFParser: any = null;
+try {
+  if (typeof require !== 'undefined') {
+    PDFParser = require("pdf2json");
+  }
+} catch (e) {
+  console.warn("pdf2json not available:", e);
+}
 
 export async function POST(request: Request) {
   try {
@@ -50,7 +59,64 @@ export async function POST(request: Request) {
       // );
     }
 
+    // Extract text from PDF if applicable (try to extract, but don't fail if it doesn't work)
+    let extractedText = "";
+    if (file.type === "application/pdf") {
+      try {
+        // Check if pdf2json is available (may not work in Edge Runtime or some serverless environments)
+        if (PDFParser) {
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          
+          extractedText = await new Promise<string>((resolve) => {
+            try {
+              const pdfParser = new PDFParser(null, 1); // 1 = text content
+              let timeoutId: NodeJS.Timeout;
+
+              // Set a timeout to prevent hanging
+              timeoutId = setTimeout(() => {
+                console.warn("PDF parsing timeout");
+                resolve("");
+              }, 10000); // 10 second timeout
+
+              pdfParser.on("pdfParser_dataError", (errData: any) => {
+                clearTimeout(timeoutId);
+                console.error("PDF Parser Error:", errData.parserError);
+                resolve(""); // Resolve with empty string instead of rejecting
+              });
+
+              pdfParser.on("pdfParser_dataReady", () => {
+                clearTimeout(timeoutId);
+                try {
+                  // In text mode (1), getRawTextContent() returns the text
+                  const text = pdfParser.getRawTextContent();
+                  resolve(text || "");
+                } catch (e) {
+                  console.error("Error getting PDF text:", e);
+                  resolve(""); // Resolve with empty string on error
+                }
+              });
+
+              pdfParser.parseBuffer(buffer);
+            } catch (e) {
+              console.error("Error initializing PDF parser:", e);
+              resolve(""); // Resolve with empty string on error
+            }
+          });
+        } else {
+          console.warn("PDF parsing not available in this environment");
+          // PDF parsing not available, continue without extracted text
+          extractedText = "";
+        }
+      } catch (e) {
+        console.error("Error parsing PDF:", e);
+        // Continue without extracted text - not critical for upload to succeed
+        extractedText = "";
+      }
+    }
+
     // Convert file to base64 for storage (or you could upload to Supabase Storage)
+    // This is done after PDF parsing to avoid unnecessary work if parsing fails
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const base64 = buffer.toString("base64");
@@ -64,31 +130,6 @@ export async function POST(request: Request) {
 
     // TODO: Store in database or Supabase Storage
     // For now, we'll return success and the file will be processed during roadmap generation
-
-    // Extract text from PDF if applicable
-    let extractedText = "";
-    if (file.type === "application/pdf") {
-      try {
-        extractedText = await new Promise((resolve, reject) => {
-          const pdfParser = new PDFParser(null, 1); // 1 = text content
-
-          pdfParser.on("pdfParser_dataError", (errData: any) => {
-            console.error("PDF Parser Error:", errData.parserError);
-            reject(new Error(errData.parserError));
-          });
-
-          pdfParser.on("pdfParser_dataReady", () => {
-            // In text mode (1), getRawTextContent() returns the text
-            const text = pdfParser.getRawTextContent();
-            resolve(text);
-          });
-
-          pdfParser.parseBuffer(buffer);
-        });
-      } catch (e) {
-        console.error("Error parsing PDF with pdf2json:", e);
-      }
-    }
 
     return NextResponse.json({
       success: true,

@@ -11,10 +11,17 @@ const questionsSchema = z.object({
 
 export async function POST(request: Request) {
     try {
-        const { hardcodedAnswers } = await request.json();
+        const body = await request.json();
+        const { hardcodedAnswers } = body;
 
         if (!hardcodedAnswers) {
-            return new Response("Hardcoded answers are required", { status: 400 });
+            return new Response(
+                JSON.stringify({ error: "Hardcoded answers are required" }),
+                { 
+                    status: 400,
+                    headers: { "Content-Type": "application/json" }
+                }
+            );
         }
 
         // Create system prompt based on hardcoded answers
@@ -49,9 +56,29 @@ Return ONLY the questions in an array format.`;
             }
         );
 
+        const questions = result.object?.questions || [];
+        
+        // Ensure we have at least one question
+        if (questions.length === 0) {
+            console.warn("No questions generated, using fallback questions");
+            return new Response(
+                JSON.stringify({
+                    questions: [
+                        "What specific skills or experiences do you want to develop to reach your career goals?",
+                        "What motivates you most in your career journey?",
+                        "What challenges or obstacles do you anticipate facing?"
+                    ],
+                }),
+                {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
+
         return new Response(
             JSON.stringify({
-                questions: result.object.questions,
+                questions: questions,
             }),
             {
                 status: 200,
@@ -60,13 +87,20 @@ Return ONLY the questions in an array format.`;
         );
     } catch (error) {
         console.error("Error generating personalized questions:", error);
+        
+        // Return fallback questions instead of failing completely
+        // This ensures the onboarding flow can continue even if question generation fails
+        console.warn("Using fallback questions due to error");
         return new Response(
             JSON.stringify({
-                error: "Failed to generate questions",
-                details: error instanceof Error ? error.message : "Unknown error",
+                questions: [
+                    "What specific skills or experiences do you want to develop to reach your career goals?",
+                    "What motivates you most in your career journey?",
+                    "What challenges or obstacles do you anticipate facing?"
+                ],
             }),
             {
-                status: 500,
+                status: 200, // Return 200 with fallback questions instead of 500
                 headers: { "Content-Type": "application/json" },
             }
         );
