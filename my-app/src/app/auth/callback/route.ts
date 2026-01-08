@@ -11,6 +11,10 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // Redirect to onboarding page
-  return NextResponse.redirect(new URL(next, request.url))
+  // Use the request origin to redirect to the same domain that made the request
+  // This ensures localhost redirects to localhost and production redirects to production
+  const baseUrl = requestUrl.origin
+  const redirectUrl = new URL(next, baseUrl)
+  
+  return NextResponse.redirect(redirectUrl)
 }

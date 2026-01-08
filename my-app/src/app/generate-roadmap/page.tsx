@@ -627,7 +627,7 @@ function GenerateRoadmapContent() {
                                       <h4 className="font-semibold text-sm text-foreground mb-3">Skills</h4>
                                       <div className="flex flex-wrap gap-2 pl-6">
                                         {(Array.isArray(profile.skills) ? profile.skills : []).slice(0, 8).map((skill: any, skillIndex: number) => {
-                                          const skillName = typeof skill === "string" ? skill : skill.name;
+                                          const skillName = typeof skill === "string" ? skill : (skill.skill || skill.name);
                                           return (
                                             <span
                                               key={skillIndex}
