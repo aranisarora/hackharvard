@@ -31,8 +31,10 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
 /**
  * Initialize API key from environment
  * @ai-sdk/google automatically reads from GOOGLE_GENERATIVE_AI_API_KEY
+ * Note: In Edge Runtime, process.env is read-only, so we can't modify it
  */
 function initializeApiKey(): void {
+  // Check for API key in environment
   const apiKey =
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
     process.env.GEMINI_API_KEY;
@@ -43,8 +45,21 @@ function initializeApiKey(): void {
     );
   }
 
-  // Ensure the standard env variable is set for @ai-sdk/google
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+  // In Edge Runtime, process.env is read-only, so we can't modify it
+  // @ai-sdk/google will read from GOOGLE_GENERATIVE_AI_API_KEY automatically
+  // If only GEMINI_API_KEY is set, we need to ensure GOOGLE_GENERATIVE_AI_API_KEY is also set
+  // But in Edge Runtime, we can't do this, so we rely on the environment variable being set correctly
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && process.env.GEMINI_API_KEY) {
+    // Try to set it, but catch errors for Edge Runtime compatibility
+    try {
+      // @ts-ignore - process.env may be read-only in Edge Runtime
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+    } catch (e) {
+      // In Edge Runtime, this will fail - that's okay if GOOGLE_GENERATIVE_AI_API_KEY is already set in env
+      // If it's not set, @ai-sdk/google might fail, but we've validated the key exists
+      console.warn("Could not set GOOGLE_GENERATIVE_AI_API_KEY (Edge Runtime or read-only env). Ensure GOOGLE_GENERATIVE_AI_API_KEY is set in your environment variables.");
+    }
+  }
 }
 
 /**
@@ -85,6 +100,8 @@ export async function streamChatbotResponse(
     throw new Error("No valid messages provided");
   }
 
+  // @ai-sdk/google reads from GOOGLE_GENERATIVE_AI_API_KEY automatically
+  // In Edge Runtime, ensure the env var is set in your deployment platform
   return await streamText({
     model: google(model),
     system: systemPrompt,
@@ -120,6 +137,7 @@ export async function generateTextResponse(
     throw new Error("No valid messages provided");
   }
 
+  // @ai-sdk/google reads from GOOGLE_GENERATIVE_AI_API_KEY automatically
   return await generateText({
     model: google(model),
     system: systemPrompt,
@@ -159,7 +177,15 @@ export async function generateStructuredResponse<T>(
   console.log("[Gemini Service] Calling generateObject with model:", model);
   console.log("[Gemini Service] Message count:", formattedMessages.length);
   console.log("[Gemini Service] Max tokens:", maxOutputTokens);
+  
+  // Verify API key is available (for better error messages)
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("API key not found. Please set GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY environment variable.");
+  }
+  console.log("[Gemini Service] API key found, length:", apiKey.length);
 
+  // @ai-sdk/google reads from GOOGLE_GENERATIVE_AI_API_KEY automatically
   const result = await generateObject({
     model: google(model),
     system: systemPrompt,

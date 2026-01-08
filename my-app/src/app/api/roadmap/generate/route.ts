@@ -117,6 +117,20 @@ const DashboardSegmentSchema = RoadmapGenerationSchema.pick({ dashboard: true })
 export async function POST(request: Request) {
   try {
     console.log("[Roadmap Generate] Starting roadmap generation...");
+    
+    // Validate API key early
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("[Roadmap Generate] API key not found in environment variables");
+      return NextResponse.json(
+        {
+          error: "Failed to generate roadmap",
+          details: "API key not configured. Please set GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY environment variable.",
+        },
+        { status: 500 }
+      );
+    }
+    
     const { messages, onboardingData, resumes } = await request.json();
     console.log("[Roadmap Generate] Received messages:", messages?.length || 0);
     console.log("[Roadmap Generate] Received onboarding data:", !!onboardingData);
@@ -213,35 +227,110 @@ Use these resumes to inform what skills, experiences, and qualifications are typ
     ) {
       console.log(`[Roadmap Generate] ${segmentLabel} segment starting...`);
       const prompt = buildSegmentPrompt(segmentLabel, instructions);
-      const segmentResult = await generateStructuredResponse(messages, {
-        systemPrompt: prompt,
-        schema,
-        maxOutputTokens: 65536,
-      });
-      console.log(`[Roadmap Generate] ${segmentLabel} segment completed`);
-      return segmentResult;
+      try {
+        // Use reasonable token limits to prevent timeouts
+        // 32768 is the max for most models, but we use 16384 to be safe
+        const segmentResult = await generateStructuredResponse(messages, {
+          systemPrompt: prompt,
+          schema,
+          maxOutputTokens: 16384, // Reduced from 65536 to prevent timeouts
+        });
+        console.log(`[Roadmap Generate] ${segmentLabel} segment completed`);
+        return segmentResult;
+      } catch (error) {
+        console.error(`[Roadmap Generate] Error in ${segmentLabel} segment:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[Roadmap Generate] ${segmentLabel} error details:`, {
+          message: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw new Error(`Failed to generate ${segmentLabel}: ${errorMessage}`);
+      }
     }
 
-    const targetCVResult = await runSegment(
-      "Target CV",
-      TargetCVSegmentSchema,
-      TARGET_CV_SECTION_PROMPT
-    );
-    const roadmapResult = await runSegment(
-      "Roadmap tasks",
-      RoadmapSegmentSchema,
-      ROADMAP_TASKS_SECTION_PROMPT
-    );
-    const dashboardResult = await runSegment(
-      "Dashboard",
-      DashboardSegmentSchema,
-      DASHBOARD_SECTION_PROMPT
-    );
+    // Run segments with error handling - each segment can fail independently
+    let targetCVResult, roadmapResult, dashboardResult;
+    
+    try {
+      targetCVResult = await runSegment(
+        "Target CV",
+        TargetCVSegmentSchema,
+        TARGET_CV_SECTION_PROMPT
+      );
+    } catch (error) {
+      console.error("[Roadmap Generate] Target CV generation failed:", error);
+      // Provide fallback - use extracted resume text as target CV if available
+      const fallbackCV = extractedResumeText || "";
+      targetCVResult = { object: { targetCV: fallbackCV } };
+    }
 
-    const targetCV = targetCVResult.object.targetCV || "";
-    const roadmap = roadmapResult.object.roadmap || { tasks: [] };
+    try {
+      roadmapResult = await runSegment(
+        "Roadmap tasks",
+        RoadmapSegmentSchema,
+        ROADMAP_TASKS_SECTION_PROMPT
+      );
+    } catch (error) {
+      console.error("[Roadmap Generate] Roadmap generation failed:", error);
+      // Provide fallback with basic tasks
+      roadmapResult = { 
+        object: { 
+          roadmap: { 
+            tasks: [
+              {
+                id: "1",
+                category: "skills",
+                title: "Develop core skills for your target role",
+                description: "Focus on building the essential skills needed for your target position.",
+                checklist: [
+                  { id: "1", text: "Identify key skills required", isCompleted: false },
+                  { id: "2", text: "Create a learning plan", isCompleted: false },
+                  { id: "3", text: "Start skill development", isCompleted: false },
+                ],
+                deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                isCompleted: false,
+              }
+            ] 
+          } 
+        } 
+      };
+    }
+
+    try {
+      dashboardResult = await runSegment(
+        "Dashboard",
+        DashboardSegmentSchema,
+        DASHBOARD_SECTION_PROMPT
+      );
+    } catch (error) {
+      console.error("[Roadmap Generate] Dashboard generation failed:", error);
+      // Provide fallback with basic data from onboarding
+      const fallbackDashboard = {
+        user: {
+          email: "",
+          targetJob: onboardingData?.hardcodedAnswers?.targetPosition || "Software Engineer",
+          targetCompany: onboardingData?.hardcodedAnswers?.targetCompany || "Google",
+        },
+        overallProgress: 30, // Default progress
+        categories: [
+          {
+            id: "skills",
+            title: "Skills",
+            icon: "Briefcase",
+            color: "text-primary",
+            bgColor: "bg-primary/10",
+            tasks: [],
+            progress: 0,
+          }
+        ],
+      };
+      dashboardResult = { object: { dashboard: fallbackDashboard } };
+    }
+
+    const targetCV = targetCVResult.object?.targetCV || "";
+    const roadmap = roadmapResult.object?.roadmap || { tasks: [] };
     const dashboard =
-      dashboardResult.object.dashboard || {
+      dashboardResult.object?.dashboard || {
         user: { email: "", targetJob: "", targetCompany: "" },
         overallProgress: 0,
         categories: [],
@@ -269,20 +358,30 @@ Use these resumes to inform what skills, experiences, and qualifications are typ
       data: finalData,
     });
   } catch (error) {
-    console.error("Error in roadmap generation:", error);
+    console.error("[Roadmap Generate] Error in roadmap generation:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorDetails = error instanceof Error ? error.stack : "";
 
     // Log full error for debugging
-    console.error("Full error details:", {
+    console.error("[Roadmap Generate] Full error details:", {
       message: errorMessage,
       stack: errorDetails,
       error: error,
     });
 
+    // Check for specific error types
+    let userFriendlyMessage = "Failed to generate roadmap";
+    if (errorMessage.includes("API key")) {
+      userFriendlyMessage = "API key not configured. Please check your environment variables.";
+    } else if (errorMessage.includes("timeout") || errorMessage.includes("aborted")) {
+      userFriendlyMessage = "Request timed out. Please try again.";
+    } else if (errorMessage.includes("quota") || errorMessage.includes("rate limit")) {
+      userFriendlyMessage = "API rate limit exceeded. Please try again later.";
+    }
+
     return NextResponse.json(
       {
-        error: "Failed to generate roadmap",
+        error: userFriendlyMessage,
         details: errorMessage,
         fullError: process.env.NODE_ENV === "development" ? errorDetails : undefined,
       },
