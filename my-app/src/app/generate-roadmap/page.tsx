@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { getOnboardingData, getCoreSignalResumes, generateRoadmap, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
+import { normalizeCompanyName } from "@/lib/utils";
 import { 
   Search, 
   FileText, 
@@ -103,7 +104,10 @@ function GenerateRoadmapContent() {
         setOnboardingData(response.data);
         
         const jobTitle = response.data.hardcodedAnswers?.targetPosition || "Product Designer";
-        const company = response.data.hardcodedAnswers?.targetCompany || "Pathforge";
+        const rawCompany = response.data.hardcodedAnswers?.targetCompany || "Pathforge";
+        
+        // Normalize company name - ensure we have a real company (not vague responses like "not sure" or "any high tech company")
+        const company = normalizeCompanyName(rawCompany, jobTitle);
         
         setActualJobTitle(jobTitle);
         setActualCompany(company);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeCompanyName } from "@/lib/utils";
 
 // Simple in-memory store (in production, use database)
 let dashboardStore: {
@@ -14,6 +15,25 @@ let dashboardStore: {
     progress: number;
   }>;
 } | null = null;
+
+// Helper to get onboarding data from the same route file
+async function getOnboardingData() {
+  try {
+    // Import the onboarding store - since they're in different files, we'll fetch via HTTP
+    // In a real app, this would be a shared store or database
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/onboarding/save`, {
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.data;
+    }
+  } catch (error) {
+    console.error("Error fetching onboarding data:", error);
+  }
+  return null;
+}
 
 // Default dashboard data (fallback)
 const defaultCategories = [
@@ -72,11 +92,32 @@ export async function GET() {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 300));
 
-  // Return stored dashboard data or defaults
+  // Return stored dashboard data if available
   if (dashboardStore) {
     return NextResponse.json(dashboardStore);
   }
 
+  // Try to get data from onboarding store and create basic dashboard
+  const onboardingData = await getOnboardingData();
+  if (onboardingData?.hardcodedAnswers) {
+    const answers = onboardingData.hardcodedAnswers;
+    const jobTitle = answers.targetPosition || "Software Engineer";
+    const rawCompany = answers.targetCompany || "Google";
+    // Normalize company name to ensure we have a real company
+    const normalizedCompany = normalizeCompanyName(rawCompany, jobTitle);
+    const basicDashboard = {
+      user: {
+        email: "",
+        targetJob: jobTitle,
+        targetCompany: normalizedCompany,
+      },
+      overallProgress: 0, // Will be updated when roadmap is generated
+      categories: defaultCategories,
+    };
+    return NextResponse.json(basicDashboard);
+  }
+
+  // Return defaults if no data found
   return NextResponse.json({
     user: {
       email: "user@example.com",
@@ -102,6 +143,13 @@ export async function POST(request: Request) {
 
     // Store the dashboard data
     dashboardStore = { user, overallProgress, categories };
+    
+    console.log(`[Dashboard Save] Saved dashboard data:`, {
+      targetJob: user.targetJob,
+      targetCompany: user.targetCompany,
+      overallProgress,
+      categoryCount: categories.length
+    });
 
     return NextResponse.json({
       success: true,
@@ -110,6 +158,7 @@ export async function POST(request: Request) {
       categories,
     });
   } catch (error) {
+    console.error("[Dashboard Save] Error saving dashboard data:", error);
     return NextResponse.json(
       { error: "Failed to save dashboard data" },
       { status: 500 }

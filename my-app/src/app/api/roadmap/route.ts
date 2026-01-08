@@ -24,6 +24,23 @@ let roadmapStore: {
   }>;
 } | null = null;
 
+// Helper to get onboarding data
+async function getOnboardingData() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/onboarding/save`, {
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.data;
+    }
+  } catch (error) {
+    console.error("Error fetching onboarding data:", error);
+  }
+  return null;
+}
+
 // Default roadmap tasks (fallback)
 const defaultRoadmapTasks = [
   {
@@ -137,9 +154,26 @@ export async function GET() {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 300));
 
-  // Return stored roadmap or defaults
+  // Return stored roadmap if available
+  if (roadmapStore?.tasks) {
+    return NextResponse.json({
+      tasks: roadmapStore.tasks
+    });
+  }
+
+  // Check if onboarding data exists (roadmap might not be generated yet)
+  const onboardingData = await getOnboardingData();
+  if (onboardingData) {
+    // Roadmap hasn't been generated yet, return empty or defaults
+    // The generate-roadmap page will populate this
+    return NextResponse.json({
+      tasks: defaultRoadmapTasks
+    });
+  }
+
+  // Return defaults if no data found
   return NextResponse.json({
-    tasks: roadmapStore?.tasks || defaultRoadmapTasks
+    tasks: defaultRoadmapTasks
   });
 }
 
@@ -157,12 +191,18 @@ export async function POST(request: Request) {
 
     // Store the roadmap
     roadmapStore = { tasks };
+    
+    console.log(`[Roadmap Save] Saved roadmap data:`, {
+      taskCount: tasks.length,
+      taskTitles: tasks.map(t => t.title).slice(0, 3)
+    });
 
     return NextResponse.json({
       success: true,
       tasks,
     });
   } catch (error) {
+    console.error("[Roadmap Save] Error saving roadmap data:", error);
     return NextResponse.json(
       { error: "Failed to save roadmap" },
       { status: 500 }
