@@ -30,6 +30,18 @@ interface RoadmapTask {
   };
 }
 
+// Format category name for display (handles "course" -> "Course")
+const formatCategoryDisplay = (category: string): string => {
+  if (category.toLowerCase() === "course") {
+    return "Course";
+  }
+  // Capitalize first letter of each word for other categories
+  return category
+    .split(/[\s-]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export default function RoadmapPage() {
   const [tasks, setTasks] = useState<RoadmapTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -257,10 +269,10 @@ export default function RoadmapPage() {
                       )}
                       <CardTitle>{task.title}</CardTitle>
                       <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
-                        {task.category}
+                        {formatCategoryDisplay(task.category)}
                       </span>
 
-                      {task.category === "course" && (
+                      {task.category.toLowerCase() === "course" && (
                         <div className="ml-auto">
                           <CourseLinkButton
                             taskId={task.id}
@@ -312,7 +324,7 @@ export default function RoadmapPage() {
                         >
                           {item.text}
                         </span>
-                        {task.category === "course" && task.courseLink && (
+                        {task.category.toLowerCase() === "course" && task.courseLink && (
                           <a
                             href={task.courseLink}
                             target="_blank"

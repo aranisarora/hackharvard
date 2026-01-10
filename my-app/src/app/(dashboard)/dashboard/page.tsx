@@ -25,75 +25,70 @@ type CategoryColorConfig = {
   breakdownText: string;
 };
 
+// Color palette for common category names (case-insensitive matching)
 const CATEGORY_COLOR_PALETTE: Record<string, CategoryColorConfig> = {
-  skills: {
-    dayBg: "bg-blue-500/20",
-    dayBorder: "border-blue-500",
-    dayDot: "bg-blue-500",
-    progressBar: "bg-blue-500",
-    breakdownBg: "bg-blue-500/20",
-    breakdownText: "text-blue-700 dark:text-blue-300",
-  },
-  projects: {
-    dayBg: "bg-emerald-500/20",
-    dayBorder: "border-emerald-500",
-    dayDot: "bg-emerald-500",
-    progressBar: "bg-emerald-500",
-    breakdownBg: "bg-emerald-500/20",
-    breakdownText: "text-emerald-700 dark:text-emerald-300",
-  },
-  certifications: {
-    dayBg: "bg-amber-500/20",
-    dayBorder: "border-amber-500",
-    dayDot: "bg-amber-500",
-    progressBar: "bg-amber-500",
-    breakdownBg: "bg-amber-500/20",
-    breakdownText: "text-amber-700 dark:text-amber-300",
-  },
-  experience: {
-    dayBg: "bg-purple-500/20",
-    dayBorder: "border-purple-500",
-    dayDot: "bg-purple-500",
-    progressBar: "bg-purple-500",
-    breakdownBg: "bg-purple-500/20",
-    breakdownText: "text-purple-700 dark:text-purple-300",
-  },
-  "cv-feedback": {
-    dayBg: "bg-pink-500/20",
-    dayBorder: "border-pink-500",
-    dayDot: "bg-pink-500",
-    progressBar: "bg-pink-500",
-    breakdownBg: "bg-pink-500/20",
-    breakdownText: "text-pink-700 dark:text-pink-300",
-  },
-  awards: {
-    dayBg: "bg-indigo-500/20",
-    dayBorder: "border-indigo-500",
-    dayDot: "bg-indigo-500",
-    progressBar: "bg-indigo-500",
-    breakdownBg: "bg-indigo-500/20",
-    breakdownText: "text-indigo-700 dark:text-indigo-300",
-  },
-  course: {
-    dayBg: "bg-teal-500/20",
-    dayBorder: "border-teal-500",
-    dayDot: "bg-teal-500",
-    progressBar: "bg-teal-500",
-    breakdownBg: "bg-teal-500/20",
-    breakdownText: "text-teal-700 dark:text-teal-300",
-  },
+  // Technical/Skills
+  "skills": { dayBg: "bg-blue-500/20", dayBorder: "border-blue-500", dayDot: "bg-blue-500", progressBar: "bg-blue-500", breakdownBg: "bg-blue-500/20", breakdownText: "text-blue-700 dark:text-blue-300" },
+  "technical-skills": { dayBg: "bg-blue-500/20", dayBorder: "border-blue-500", dayDot: "bg-blue-500", progressBar: "bg-blue-500", breakdownBg: "bg-blue-500/20", breakdownText: "text-blue-700 dark:text-blue-300" },
+  "technical": { dayBg: "bg-blue-500/20", dayBorder: "border-blue-500", dayDot: "bg-blue-500", progressBar: "bg-blue-500", breakdownBg: "bg-blue-500/20", breakdownText: "text-blue-700 dark:text-blue-300" },
+  "coding": { dayBg: "bg-blue-500/20", dayBorder: "border-blue-500", dayDot: "bg-blue-500", progressBar: "bg-blue-500", breakdownBg: "bg-blue-500/20", breakdownText: "text-blue-700 dark:text-blue-300" },
+  // Projects/Portfolio
+  "projects": { dayBg: "bg-emerald-500/20", dayBorder: "border-emerald-500", dayDot: "bg-emerald-500", progressBar: "bg-emerald-500", breakdownBg: "bg-emerald-500/20", breakdownText: "text-emerald-700 dark:text-emerald-300" },
+  "portfolio": { dayBg: "bg-emerald-500/20", dayBorder: "border-emerald-500", dayDot: "bg-emerald-500", progressBar: "bg-emerald-500", breakdownBg: "bg-emerald-500/20", breakdownText: "text-emerald-700 dark:text-emerald-300" },
+  // Certifications
+  "certifications": { dayBg: "bg-amber-500/20", dayBorder: "border-amber-500", dayDot: "bg-amber-500", progressBar: "bg-amber-500", breakdownBg: "bg-amber-500/20", breakdownText: "text-amber-700 dark:text-amber-300" },
+  "certification": { dayBg: "bg-amber-500/20", dayBorder: "border-amber-500", dayDot: "bg-amber-500", progressBar: "bg-amber-500", breakdownBg: "bg-amber-500/20", breakdownText: "text-amber-700 dark:text-amber-300" },
+  // Experience
+  "experience": { dayBg: "bg-purple-500/20", dayBorder: "border-purple-500", dayDot: "bg-purple-500", progressBar: "bg-purple-500", breakdownBg: "bg-purple-500/20", breakdownText: "text-purple-700 dark:text-purple-300" },
+  "work-experience": { dayBg: "bg-purple-500/20", dayBorder: "border-purple-500", dayDot: "bg-purple-500", progressBar: "bg-purple-500", breakdownBg: "bg-purple-500/20", breakdownText: "text-purple-700 dark:text-purple-300" },
+  // Networking
+  "networking": { dayBg: "bg-pink-500/20", dayBorder: "border-pink-500", dayDot: "bg-pink-500", progressBar: "bg-pink-500", breakdownBg: "bg-pink-500/20", breakdownText: "text-pink-700 dark:text-pink-300" },
+  "connections": { dayBg: "bg-pink-500/20", dayBorder: "border-pink-500", dayDot: "bg-pink-500", progressBar: "bg-pink-500", breakdownBg: "bg-pink-500/20", breakdownText: "text-pink-700 dark:text-pink-300" },
+  // Personal Branding
+  "personal-branding": { dayBg: "bg-indigo-500/20", dayBorder: "border-indigo-500", dayDot: "bg-indigo-500", progressBar: "bg-indigo-500", breakdownBg: "bg-indigo-500/20", breakdownText: "text-indigo-700 dark:text-indigo-300" },
+  "branding": { dayBg: "bg-indigo-500/20", dayBorder: "border-indigo-500", dayDot: "bg-indigo-500", progressBar: "bg-indigo-500", breakdownBg: "bg-indigo-500/20", breakdownText: "text-indigo-700 dark:text-indigo-300" },
+  // Courses/Learning - sky blue (distinct from emerald portfolio)
+  "course": { dayBg: "bg-sky-500/20", dayBorder: "border-sky-500", dayDot: "bg-sky-500", progressBar: "bg-sky-500", breakdownBg: "bg-sky-500/20", breakdownText: "text-sky-700 dark:text-sky-300" },
+  "courses": { dayBg: "bg-sky-500/20", dayBorder: "border-sky-500", dayDot: "bg-sky-500", progressBar: "bg-sky-500", breakdownBg: "bg-sky-500/20", breakdownText: "text-sky-700 dark:text-sky-300" },
+  "learning": { dayBg: "bg-sky-500/20", dayBorder: "border-sky-500", dayDot: "bg-sky-500", progressBar: "bg-sky-500", breakdownBg: "bg-sky-500/20", breakdownText: "text-sky-700 dark:text-sky-300" },
+  // Awards
+  "awards": { dayBg: "bg-yellow-500/20", dayBorder: "border-yellow-500", dayDot: "bg-yellow-500", progressBar: "bg-yellow-500", breakdownBg: "bg-yellow-500/20", breakdownText: "text-yellow-700 dark:text-yellow-300" },
 };
 
-const DEFAULT_CATEGORY_COLORS: CategoryColorConfig = {
-  dayBg: "bg-slate-500/20",
-  dayBorder: "border-slate-500",
-  dayDot: "bg-slate-500",
-  progressBar: "bg-slate-500",
-  breakdownBg: "bg-slate-500/20",
-  breakdownText: "text-muted-foreground",
-};
+// Fallback colors for unknown categories - 12 highly distinguishable colors
+// Selected to maximize visual contrast with varying hues across the color wheel
+const FALLBACK_COLOR_SETS: CategoryColorConfig[] = [
+  // Warm colors
+  { dayBg: "bg-rose-500/20", dayBorder: "border-rose-500", dayDot: "bg-rose-500", progressBar: "bg-rose-500", breakdownBg: "bg-rose-500/20", breakdownText: "text-rose-700 dark:text-rose-300" },
+  { dayBg: "bg-orange-500/20", dayBorder: "border-orange-500", dayDot: "bg-orange-500", progressBar: "bg-orange-500", breakdownBg: "bg-orange-500/20", breakdownText: "text-orange-700 dark:text-orange-300" },
+  { dayBg: "bg-red-600/20", dayBorder: "border-red-600", dayDot: "bg-red-600", progressBar: "bg-red-600", breakdownBg: "bg-red-600/20", breakdownText: "text-red-700 dark:text-red-300" },
+  // Cool colors
+  { dayBg: "bg-cyan-500/20", dayBorder: "border-cyan-500", dayDot: "bg-cyan-500", progressBar: "bg-cyan-500", breakdownBg: "bg-cyan-500/20", breakdownText: "text-cyan-700 dark:text-cyan-300" },
+  { dayBg: "bg-sky-500/20", dayBorder: "border-sky-500", dayDot: "bg-sky-500", progressBar: "bg-sky-500", breakdownBg: "bg-sky-500/20", breakdownText: "text-sky-700 dark:text-sky-300" },
+  { dayBg: "bg-violet-500/20", dayBorder: "border-violet-500", dayDot: "bg-violet-500", progressBar: "bg-violet-500", breakdownBg: "bg-violet-500/20", breakdownText: "text-violet-700 dark:text-violet-300" },
+  // Vivid accent colors
+  { dayBg: "bg-fuchsia-500/20", dayBorder: "border-fuchsia-500", dayDot: "bg-fuchsia-500", progressBar: "bg-fuchsia-500", breakdownBg: "bg-fuchsia-500/20", breakdownText: "text-fuchsia-700 dark:text-fuchsia-300" },
+  { dayBg: "bg-lime-500/20", dayBorder: "border-lime-500", dayDot: "bg-lime-500", progressBar: "bg-lime-500", breakdownBg: "bg-lime-500/20", breakdownText: "text-lime-700 dark:text-lime-300" },
+  // Neutral/muted for contrast
+  { dayBg: "bg-zinc-500/20", dayBorder: "border-zinc-500", dayDot: "bg-zinc-500", progressBar: "bg-zinc-500", breakdownBg: "bg-zinc-500/20", breakdownText: "text-zinc-700 dark:text-zinc-300" },
+  { dayBg: "bg-stone-500/20", dayBorder: "border-stone-500", dayDot: "bg-stone-500", progressBar: "bg-stone-500", breakdownBg: "bg-stone-500/20", breakdownText: "text-stone-700 dark:text-stone-300" },
+  // Specific hue variations
+  { dayBg: "bg-emerald-600/20", dayBorder: "border-emerald-600", dayDot: "bg-emerald-600", progressBar: "bg-emerald-600", breakdownBg: "bg-emerald-600/20", breakdownText: "text-emerald-700 dark:text-emerald-300" },
+  { dayBg: "bg-indigo-600/20", dayBorder: "border-indigo-600", dayDot: "bg-indigo-600", progressBar: "bg-indigo-600", breakdownBg: "bg-indigo-600/20", breakdownText: "text-indigo-700 dark:text-indigo-300" },
+];
 
-const getCategoryColors = (category: string) => CATEGORY_COLOR_PALETTE[category] || DEFAULT_CATEGORY_COLORS;
+const getCategoryColors = (category: string): CategoryColorConfig => {
+  const normalizedKey = category.toLowerCase().replace(/\s+/g, "-");
+  if (CATEGORY_COLOR_PALETTE[normalizedKey]) {
+    return CATEGORY_COLOR_PALETTE[normalizedKey];
+  }
+  // Generate consistent color based on category name hash
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) {
+    hash = category.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return FALLBACK_COLOR_SETS[Math.abs(hash) % FALLBACK_COLOR_SETS.length];
+};
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -322,7 +317,7 @@ export default function DashboardPage() {
                   const colors = getCategoryColors(segment.id);
                   return (
                     <span key={`${segment.id}-${segment.title}`} className={`px-2 py-1 rounded ${colors.breakdownBg} ${colors.breakdownText}`}>
-                      {segment.title}: {segment.contributionToOverall}% of {overallProgress}%
+                      {segment.id?.toLowerCase() === "course" ? "Course" : segment.title}: {segment.contributionToOverall}% of {overallProgress}%
                     </span>
                   );
                 })}
@@ -350,7 +345,7 @@ export default function DashboardPage() {
                         <Icon className={`h-5 w-5 ${category.color}`} />
                       </div>
                       <div>
-                        <CardTitle>{category.title}</CardTitle>
+                        <CardTitle>{category.id?.toLowerCase() === "course" ? "Course" : category.title}</CardTitle>
                         <CardDescription>
                           {completedCount}/{tasks.length} completed
                         </CardDescription>
@@ -486,7 +481,7 @@ export default function DashboardPage() {
                     return (
                       <div key={cat} className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${colors.dayDot}`} />
-                        <span className="capitalize">{cat.replace(/-/g, " ")}</span>
+                        <span className="capitalize">{cat.toLowerCase() === "course" ? "Course" : cat.replace(/-/g, " ")}</span>
                       </div>
                     );
                   })}

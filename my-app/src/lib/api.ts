@@ -296,7 +296,7 @@ export async function sendOnboardingMessage(
 }
 
 // Roadmap Generation API
-const ROADMAP_GENERATION_TIMEOUT_MS = 120_000;
+const ROADMAP_GENERATION_TIMEOUT_MS = 660_000; // 11 minutes (slightly more than server's 10 min timeout)
 const ROADMAP_GENERATION_MAX_ATTEMPTS = 2;
 
 export async function generateRoadmap(

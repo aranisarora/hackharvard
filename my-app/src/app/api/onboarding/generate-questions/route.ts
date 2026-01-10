@@ -18,26 +18,23 @@ export async function POST(request: Request) {
         }
 
         // Create system prompt based on hardcoded answers
-        const systemPrompt = `Based on the following user information, generate up to 3 personalized questions that will help understand their career goals and needs better:
+        const systemPrompt = `## ROLE: PERSONALIZATION ARCHITECT
+Your task is to analyze the user's base profile and generate **3 HYPER-PERSONALIZED** questions that uncover the deep motivations and specific hurdles they face.
 
-Age: ${hardcodedAnswers.age || "Not provided"}
-Location: ${hardcodedAnswers.location || "Not provided"}
-Target Position: ${hardcodedAnswers.targetPosition || "Not provided"}
-Target Company: ${hardcodedAnswers.targetCompany || "Not provided"}
-Salary Range: ${hardcodedAnswers.salaryRange || "Not provided"}
-Time Per Week: ${hardcodedAnswers.timePerWeek || "Not provided"}
-Target Date: ${hardcodedAnswers.targetDate || "Not provided"}
+### USER CONTEXT:
+- **Target Position**: ${hardcodedAnswers.targetPosition || "Not provided"}
+- **Target Company**: ${hardcodedAnswers.targetCompany || "Not provided"}
+- **Location**: ${hardcodedAnswers.location || "Not provided"}
+- **Commitment**: ${hardcodedAnswers.timePerWeek || "Not provided"} / Week
+- **Target Date**: ${hardcodedAnswers.targetDate || "Not provided"}
 
-Generate 1-3 insightful, personalized questions that explore:
-- Their motivations and values in their career
-- Specific skills, experiences, or areas they want to develop
-- Their learning preferences and style
-- Any challenges, concerns, or obstacles they face
+### QUESTION DESIGN INSTRUCTIONS:
+1. **NO REDUNDANCY**: Do NOT ask for information already provided in the context above.
+2. **DEPTH-FIRST**: Ask about specific skill-gap anxieties, industry-specific interests (e.g., for AI roles, ask about specific frameworks), or lifestyle constraints.
+3. **TONE**: Professional, curious, and supportive.
+4. **OBJECTIVE**: Uncover data points that would make a career roadmap feel "custom-built" rather than generic.
 
-Make the questions conversational, specific to their situation, and designed to uncover information that would help create a highly personalized career roadmap.
-
-DO NOT ask about information that was already provided above.
-Return ONLY the questions in an array format.`;
+**OUTPUT**: Return an array of 1-3 questions only.`;
 
         // Call Gemini to generate personalized questions
         const result = await generateStructuredResponse(
