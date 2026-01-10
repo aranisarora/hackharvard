@@ -409,8 +409,7 @@ export async function getChatHistory() {
 export async function saveOnboardingData(data: {
   messages: Array<any>;
   hardcodedAnswers: Record<string, string>;
-  personalizedAnswers: string[];
-  personalizedQuestions: string[];
+  personalizedQA: Array<{ question: string; answer: string }>;
   cvFile?: { name: string; size: number; type: string } | null;
 }) {
   return fetchAPI<{ success: boolean; timestamp: string }>("/onboarding/save", {

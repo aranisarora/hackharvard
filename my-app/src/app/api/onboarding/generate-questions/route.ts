@@ -4,68 +4,120 @@ import { z } from "zod";
 // Use Edge Runtime for lower latency
 export const runtime = "edge";
 
-// Schema for the response
-const questionsSchema = z.object({
-    questions: z.array(z.string()).max(3).describe("Up to 3 personalized questions"),
+// Schema for iterative question generation
+const questionResponseSchema = z.object({
+    question: z.string().optional().describe("A single personalized question, if more information is needed"),
+    stop: z.boolean().describe("Set to true if enough information has been gathered to create a CV forecast"),
 });
+
+// Maximum number of personalized questions
+const MAX_PERSONALIZED_QUESTIONS = 8;
 
 export async function POST(request: Request) {
     try {
-        const { hardcodedAnswers } = await request.json();
+        const { hardcodedAnswers, cvText, previousQA } = await request.json();
 
         if (!hardcodedAnswers) {
             return new Response("Hardcoded answers are required", { status: 400 });
         }
 
-        // Create system prompt based on hardcoded answers
-        const systemPrompt = `## ROLE: PERSONALIZATION ARCHITECT
-Your task is to analyze the user's base profile and generate **3 HYPER-PERSONALIZED** questions that uncover the deep motivations and specific hurdles they face.
+        // Check if we've reached the maximum number of questions
+        const questionCount = previousQA?.length || 0;
+        if (questionCount >= MAX_PERSONALIZED_QUESTIONS) {
+            return new Response(
+                JSON.stringify({ stop: true }),
+                { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+        }
 
-### USER CONTEXT:
+        // Format previous Q&A for context
+        const previousQAContext = previousQA && previousQA.length > 0
+            ? previousQA.map((qa: { question: string; answer: string }, i: number) =>
+                `Q${i + 1}: ${qa.question}\nA${i + 1}: ${qa.answer}`
+            ).join("\n\n")
+            : "No personalized questions asked yet.";
+
+        // Create system prompt for iterative question generation
+        const systemPrompt = `## ROLE: CAREER ROADMAP PERSONALIZATION EXPERT
+
+You are helping gather information to create a **personalized CV forecast and career roadmap**. Your goal is to understand the user's unique situation deeply enough to generate an actionable, custom roadmap.
+
+### CURRENT USER PROFILE:
+- **Age**: ${hardcodedAnswers.age || "Not provided"}
+- **Location**: ${hardcodedAnswers.location || "Not provided"}
 - **Target Position**: ${hardcodedAnswers.targetPosition || "Not provided"}
 - **Target Company**: ${hardcodedAnswers.targetCompany || "Not provided"}
-- **Location**: ${hardcodedAnswers.location || "Not provided"}
-- **Commitment**: ${hardcodedAnswers.timePerWeek || "Not provided"} / Week
-- **Target Date**: ${hardcodedAnswers.targetDate || "Not provided"}
+- **Salary Range**: ${hardcodedAnswers.salaryRange || "Not provided"}
+- **Weekly Commitment**: ${hardcodedAnswers.timePerWeek || "Not provided"}
+- **Target Timeline**: ${hardcodedAnswers.targetDate || "Not provided"}
 
-### QUESTION DESIGN INSTRUCTIONS:
-1. **NO REDUNDANCY**: Do NOT ask for information already provided in the context above.
-2. **DEPTH-FIRST**: Ask about specific skill-gap anxieties, industry-specific interests (e.g., for AI roles, ask about specific frameworks), or lifestyle constraints.
-3. **TONE**: Professional, curious, and supportive.
-4. **OBJECTIVE**: Uncover data points that would make a career roadmap feel "custom-built" rather than generic.
+### USER'S CV/RESUME:
+${cvText || "No CV uploaded yet."}
 
-**OUTPUT**: Return an array of 1-3 questions only.`;
+### PREVIOUS PERSONALIZED Q&A:
+${previousQAContext}
 
-        // Call Gemini to generate personalized questions
+---
+
+## YOUR TASK:
+
+Analyze the user's profile and CV. Determine if you have ENOUGH INFORMATION to create a comprehensive CV forecast and career roadmap.
+
+### QUESTION GUIDELINES:
+1. **Focus on CV Generation Context**: Ask questions that help build their career roadmap:
+   - For **students**: college preferences, internship experience, extracurricular activities, specific skills they want to develop
+   - For **career changers**: transferable skills, reasons for change, specific industry preferences
+   - For **professionals**: skill gaps for target role, networking status, certification plans
+2. **Be Specific**: Ask about concrete things like specific technologies, companies, courses, or experiences
+3. **No Redundancy**: NEVER ask for information already in the profile or CV above
+4. **One Question at a Time**: Return exactly ONE question if you need more info
+5. **Know When to Stop**: If you have enough context to create a meaningful roadmap, set stop to true
+
+### DECISION CRITERIA FOR STOPPING:
+- You understand their current career stage clearly
+- You know their specific goals and timeline
+- You have enough context about their skills and gaps
+- You can create a personalized, actionable roadmap
+
+**Questions asked so far: ${questionCount}/${MAX_PERSONALIZED_QUESTIONS}**
+
+If you need more information, return a question. If you have enough, return stop: true.`;
+
+        // Call Gemini to generate the next question or stop
         const result = await generateStructuredResponse(
-            [{ role: "user", content: "Generate personalized questions based on my profile." }],
+            [{ role: "user", content: "Based on my profile and CV, do you need any additional information to create a personalized CV forecast and career roadmap? If yes, ask ONE specific question. If you have enough information, stop." }],
             {
                 systemPrompt,
-                schema: questionsSchema,
-                temperature: 0.8, // Higher temperature for more creative questions
+                schema: questionResponseSchema,
+                temperature: 0.7,
             }
         );
 
+        const response = result.object;
+
+        // If stop is true or no question is provided, signal completion
+        if (response.stop || !response.question) {
+            return new Response(
+                JSON.stringify({ stop: true }),
+                { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+        }
+
         return new Response(
             JSON.stringify({
-                questions: result.object.questions,
+                question: response.question,
+                stop: false,
             }),
-            {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            }
+            { status: 200, headers: { "Content-Type": "application/json" } }
         );
     } catch (error) {
-        console.error("Error generating personalized questions:", error);
+        console.error("Error generating personalized question:", error);
         return new Response(
             JSON.stringify({
-                error: "Failed to generate questions",
+                error: "Failed to generate question",
                 details: error instanceof Error ? error.message : "Unknown error",
             }),
-            {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            }
+            { status: 500, headers: { "Content-Type": "application/json" } }
         );
     }
 }

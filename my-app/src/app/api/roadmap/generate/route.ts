@@ -335,34 +335,69 @@ export async function POST(request: Request) {
       return `${segmentPrompt.replace(/{{TODAY}}/g, today)}\n\n---\n${sharedContext}`;
     };
 
-    // Run 4 segments IN PARALLEL (removed separate category generation)
-    console.log("[Roadmap Generate] Launching 4 parallel segments...");
+    // PHASE 1: Generate Target CV first (so roadmap can use it as context)
+    console.log("[Roadmap Generate] Phase 1: Generating Target CV...");
     const startTime = Date.now();
 
+    const targetCVResult = await withTimeout(
+      generateStructuredResponse(messages, {
+        systemPrompt: buildPrompt(TARGET_CV_PROMPT),
+        schema: TargetCVSchema,
+        maxOutputTokens: 16384,
+      }),
+      600000,
+      "Target CV generation"
+    ).catch(err => {
+      console.error("[Phase 1 - Target CV] Error:", err);
+      return { object: { targetCV: "" } };
+    });
+
+    const cvDuration = Date.now() - startTime;
+    console.log(`[Roadmap Generate] Phase 1 completed in ${cvDuration}ms`);
+
+    // Add the generated target CV to context for roadmap generation
+    const generatedTargetCV = targetCVResult.object.targetCV || "";
+    const initialCV = extractedResumeText || "";
+
+    const buildPromptWithCV = (segmentPrompt: string) => {
+      let prompt = buildPrompt(segmentPrompt);
+
+      // Add CV gap analysis context
+      prompt += `\n\n---\n## ⚠️ CRITICAL: ROADMAP MUST BRIDGE THE GAP BETWEEN INITIAL CV AND TARGET CV\n\n`;
+
+      if (initialCV) {
+        prompt += `### USER'S CURRENT/INITIAL CV:\n${initialCV.substring(0, 2000)}...\n\n`;
+      }
+
+      if (generatedTargetCV) {
+        prompt += `### GENERATED TARGET CV (what the user needs to achieve):\n${generatedTargetCV.substring(0, 2500)}...\n\n`;
+      }
+
+      prompt += `### GAP ANALYSIS INSTRUCTIONS:
+1. **IDENTIFY THE DIFFERENCES**: Compare the INITIAL CV to the TARGET CV carefully
+2. **EACH ROADMAP TASK MUST address a specific gap** - a skill, certification, project, or experience that exists in the TARGET CV but NOT in the INITIAL CV
+3. **DO NOT create tasks for things the user already has** - check the INITIAL CV first
+4. **PRIORITIZE**: Start with foundational gaps (education, prerequisites) before advanced gaps (specialized skills, projects)
+5. **BE SPECIFIC**: If the target CV mentions "AWS Solutions Architect certification", create a task specifically for that certification, not a generic "learn cloud computing" task
+
+The roadmap should be a step-by-step path that transforms the INITIAL CV into the TARGET CV.\n`;
+
+      return prompt;
+    };
+
+    // PHASE 2: Generate roadmap tasks and dashboard info in parallel (using target CV as context)
+    console.log("[Roadmap Generate] Phase 2: Generating roadmap tasks with Target CV context...");
+    const phase2Start = Date.now();
+
     const [
-      targetCVResult,
       tasksBatch1Result,
       tasksBatch2Result,
       dashboardUserResult,
     ] = await Promise.all([
-      // Segment 1: Target CV (600s timeout)
+      // Segment 2: Tasks Batch 1 (600s timeout) - now uses target CV context
       withTimeout(
         generateStructuredResponse(messages, {
-          systemPrompt: buildPrompt(TARGET_CV_PROMPT),
-          schema: TargetCVSchema,
-          maxOutputTokens: 16384,
-        }),
-        600000,
-        "Target CV generation"
-      ).catch(err => {
-        console.error("[Segment 1 - Target CV] Error:", err);
-        return { object: { targetCV: "" } };
-      }),
-
-      // Segment 2: Tasks Batch 1 (600s timeout)
-      withTimeout(
-        generateStructuredResponse(messages, {
-          systemPrompt: buildPrompt(TASKS_BATCH_1_PROMPT),
+          systemPrompt: buildPromptWithCV(TASKS_BATCH_1_PROMPT),
           schema: TaskBatchSchema,
           maxOutputTokens: 8192,
         }),
@@ -373,10 +408,10 @@ export async function POST(request: Request) {
         return { object: { tasks: [] } };
       }),
 
-      // Segment 3: Tasks Batch 2 (600s timeout)
+      // Segment 3: Tasks Batch 2 (600s timeout) - now uses target CV context
       withTimeout(
         generateStructuredResponse(messages, {
-          systemPrompt: buildPrompt(TASKS_BATCH_2_PROMPT),
+          systemPrompt: buildPromptWithCV(TASKS_BATCH_2_PROMPT),
           schema: TaskBatchSchema,
           maxOutputTokens: 8192,
         }),
@@ -402,8 +437,10 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    const duration = Date.now() - startTime;
-    console.log(`[Roadmap Generate] All 4 segments completed in ${duration}ms`);
+    const phase2Duration = Date.now() - phase2Start;
+    const totalDuration = Date.now() - startTime;
+    console.log(`[Roadmap Generate] Phase 2 completed in ${phase2Duration}ms`);
+    console.log(`[Roadmap Generate] Total generation time: ${totalDuration}ms`);
 
     // Merge all tasks from both batches and ensure unique IDs
     const batch1Tasks = tasksBatch1Result.object.tasks || [];

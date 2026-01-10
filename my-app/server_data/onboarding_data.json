@@ -18,7 +18,7 @@
     },
     {
       "role": "user",
-      "content": "United States"
+      "content": "Bangalore, India"
     },
     {
       "role": "assistant",
@@ -26,7 +26,7 @@
     },
     {
       "role": "user",
-      "content": "lawyer"
+      "content": "Product Manager"
     },
     {
       "role": "assistant",
@@ -34,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "No preference"
+      "content": "JP Morgan"
     },
     {
       "role": "assistant",
@@ -50,7 +50,7 @@
     },
     {
       "role": "user",
-      "content": "10-20 hours"
+      "content": "20+ hours"
     },
     {
       "role": "assistant",
@@ -58,7 +58,15 @@
     },
     {
       "role": "user",
-      "content": "6 years"
+      "content": "5 years"
+    },
+    {
+      "role": "assistant",
+      "content": "Are you open to relocating for your target job?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, within my country"
     },
     {
       "role": "assistant",
@@ -66,15 +74,15 @@
     },
     {
       "role": "user",
-      "content": "Here is the content of my uploaded CV/Resume:\n\n \r\nAkshaj \r\nGoel \r\n \r\n \r\nAkshaj Goel \r\nAdarsh Palm Retreat, Bellandur \r\nBangalore, Karnataka \r\n8861302642 \r\ngoelakshaj@gmail.com \r\nᅳ\r\n \r\nEducation \r\n \r\nIGCSE(9th-10th) \r\nSubject    10th Boards    9th Internals \r\nExt. Math.        A*(100)        \r\nChemistry         A*(97) \r\nBiology           A*(97) \r\nPhysic           A*(96) \r\nComp. Sc.         A*(94) \r\nEconomics         A*(94) \r\nEng. Lang.         A*(92) \r\nSpanish           A*(91) \r\nEng. Lit.            A(85) \r\nAdd. Math                    A*(100) \r\n \r\nSAT:  \r\nAP Computer Science A: 5/5 \r\n \r\n----------------Page (0) Break----------------\r\nᅳ\r\n \r\nProjects \r\n \r\nTraffic Modelling Literature Review / Co-author \r\nJuly 2025 - PRESENT \r\nCurrently working on a literature review with a friend: \r\n-  Using fluid physics to understand traffic flow \r\n-  Understanding and breaking down various traffic flow models \r\n-  Exploring how AI can be used to improve these models \r\nAI in Education Literature Review / Primary Author \r\nJune 2025 - PRESENT \r\nFinished writing a literature review(yet to publish): \r\n-  Understanding the impact of AI on middle schoolers in urban \r\ncommunities \r\n-  Considering its positive and negative implications \r\n-  Identifying ways to optimise the learning experience to take \r\nadvantage of the rise of AI while mitigating its negative impacts. \r\nElectromagnetic Pollution Research Paper / Co-author \r\nAugust 2025- PRESENT \r\nWorking on a research paper along with a friend: \r\n-  Investigating the impact of electromagnetic pollution on health. \r\n-  Factors that affect and how to reduce these negative impacts. \r\n \r\nFlex Banner Research /  \r\nAugust 2024-PRESENT \r\nWorking on a research project with a couple friends: \r\n-  The project considers the problem of unrecyclable flex in India, \r\nand to enable recyclability, we have created a solvent \r\n-  This project was presented by one of my team members at the \r\nIIT bombay tech fest 2024-2025 and won: \r\nhttps://sofworld.org/techfest-iit-bombay-winners-2024-25 as \r\nAABIR KAPOOR \r\n-  Working in collaboration with Hasiru Dala company to pilot and \r\nindustrialise the process \r\n-  Making preparations to participate in  IRIS 2025 and Imperial \r\nStemathon 2025. \r\n \r\nData Science for Underprivileged youths \r\nJune 2025 - PRESENT \r\nCurrently working on an initiative: \r\n-  Teaching children at government schools basic data science skills \r\n-  The course content will extend to basic machine learning. \r\n-  Ideally, by the end, the children will have all the skills expected in \r\nan entry level data science job. \r\n \r\nFirst Tech Challenge \r\nAugust 2021 - March 2022 \r\n- Learnt to use Autodesk Fusion 360. \r\n----------------Page (1) Break----------------\r\n- Came top 10 out of __ teams. Our team is listed here: \r\nhttps://ftcscout.org/events/2021/INCMP/teams. \r\n- Raised 44093 INR for Agastya International Foundation to \r\ndistribute ActiLearn 1.0 books to 675 underprivileged \r\nchildren. \r\n- Gave a live, in person robotics session to the children at the \r\nAgastya Foundation. \r\n \r\nSAT AI W ebsite \r\nJuly  2025-PRESENT \r\nHave made and deployed a website: \r\n- That provides the following AI based SAT english tools \r\n- 20 question practice tests topic wise and for all topics with \r\nadditional customisability \r\n- A question solver to help elucidate the workings behind \r\ncertain questions. \r\n \r\n \r\nTalisma / Intern \r\nJune 2025 - August 2025 \r\n- Worked on a multitude of projects during my internships \r\n- Created an OCR program with three major functions: \r\n- Summarising a document(Aadhaar, PAN, etc) to \r\nextract the key details. \r\n- Comparing a document to some text in a form. \r\nApplicable in registration scenarios to eliminate the \r\nneed of manually checking if the details align. \r\n- Comparing two documents. Similar applications. \r\n- Then I expanded onto these three to specialise for \r\nhandwritten documents such as FIRs. This version \r\ncreated a table to neatly present all the \r\ninformation. \r\n- Created an email analysis and response project which \r\nextracts key points from an email, and then using a \r\nknowledge base generates a recommended output. \r\n- Expanded on this by using Talisma’s custom API \r\ninstead of generic LLM APIs \r\n- Applicable in any business with a customer support \r\nor email contact service \r\n- Created an Interactive student LMS that has two main \r\nfeatures: Assignment taking(generated with AI) and \r\ncontent learning(also AI generated). These were created \r\nbased on provided topics and three links for these topics. \r\n- Created a “university response” AI product that has the \r\ninformation of a university’s FAQ and their student \r\nspreadsheet. Certain questions can be asked to this AI \r\nbased on these two documents and it parses through all \r\nthe data and provides an output. \r\n- Applicable for any university responses(including \r\nemail) and also for internal university purposes. \r\n- Lastly, I created an “API factory.” While the basic code can \r\nbe repurposed for anything, I was told to expand it for the \r\npurposes of the first project. Essentially, a customer can \r\n----------------Page (2) Break----------------\r\ncreate their OWN custom api that can fulfill any of the \r\nthree roles described in the first project with any degree of \r\ncustomisation that they wish. \r\n \r\n  \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\nᅳ\r\n \r\nCourses \r\n \r\nData Science and Machine learning with Python \r\n- Learnt a vast breadth of topics in Data science and \r\nMachine learning, from simple data processing to the \r\nessential concepts behind neural networks \r\n \r\nOMOTEC Expert Automation V2 \r\n- Learnt circuit designing using online technologies and real \r\nlive circuits. Learnt how to use arduino including C/C++ \r\nbasics. \r\nᅳ\r\n \r\nAwards/Misc/Honors \r\n \r\nIGCSE W orld Topper Extended and Additional Mathematics. \r\n \r\nClass Topper, English Language Subject Topper, Additional \r\nMathematics Subject Topper \r\n10th grade \r\n \r\n \r\nHackathons \r\n6th grade - 9th grade \r\n- Participated in 3 hackathons. I came 2nd place in one, was \r\nnominated amongst the top 6 teams in another, and was \r\nnominated in the top 10 teams in the last. \r\n \r\n \r\n \r\n----------------Page (3) Break----------------\r\n \r\n----------------Page (4) Break----------------\r\n"
+      "content": "Here is the content of my uploaded CV/Resume:\n\n \r\nAkshaj \r\nGoel \r\n \r\n \r\nAkshaj Goel \r\nAdarsh Palm Retreat, Bellandur \r\nBangalore, Karnataka \r\n8861302642 \r\ngoelakshaj@gmail.com \r\nᅳ\r\n \r\nEducation \r\n \r\nIGCSE(9th-10th) \r\nSubject    10th Boards    9th Internals \r\nExt. Math.        A*(100)        \r\nChemistry         A*(97) \r\nBiology           A*(97) \r\nPhysic           A*(96) \r\nComp. Sc.         A*(94) \r\nEconomics         A*(94) \r\nEng. Lang.         A*(92) \r\nSpanish           A*(91) \r\nEng. Lit.            A(85) \r\nAdd. Math                    A*(100) \r\n \r\nSAT:  1550 \r\nAP Computer Science A: 5/5 \r\n \r\n----------------Page (0) Break----------------\r\nᅳ\r\n \r\nProjects \r\n \r\nComparative Analysis of Quantum and Classical Support Vector \r\nMachines for Early-Stage Cancer Detection Using Gene \r\nExpression Data / Primary Author \r\nWriting a research paper(targeting IEEE): \r\n-  Analysing the current state of research on Quantum and \r\nClassical machine learning in regards to cancer detection via \r\nGene Expression Data \r\n-  Conducting Novel comparative research on both \r\n-  Investigating effects of Hybrid Models and Different Quantum \r\nfeature maps \r\n \r\nAI (XAI) Framework for Drug Repurposing in Neurodegenerative \r\nDiseases \r\nWriting a research paper: \r\n-  Analysing the current state of research in terms of models that \r\ncan help identify drugs that can be used to help \r\nneurodegenerative diseases. \r\n-  Building an explainable model which can be used to identify \r\nrepurposable drugs for this purpose \r\n-  Analysing the results \r\nAI in Education Literature Review / Primary Author \r\nJune 2025 - PRESENT \r\nFinished writing a literature review(getting published in IJNTR): \r\n-  Understanding the impact of AI on middle schoolers in urban \r\ncommunities \r\n-  Considering its positive and negative implications \r\n-  Identifying ways to optimise the learning experience to take \r\nadvantage of the rise of AI while mitigating its negative impacts. \r\n \r\nFlex Banner Research /  \r\nAugust 2024-PRESENT \r\nWorking on a research project with a couple friends: \r\n-  The project considers the problem of unrecyclable flex in India, \r\nand to enable recyclability, we have created a solvent \r\n-  This project was presented by one of my team members at the \r\nIIT bombay tech fest 2024-2025 and won: \r\nhttps://sofworld.org/techfest-iit-bombay-winners-2024-25 as \r\nAABIR KAPOOR \r\n-  Working in collaboration with Hasiru Dala company to pilot and \r\nindustrialise the process \r\n-  Making preparations to participate in  IRIS 2025 and Imperial \r\nStemathon 2025. \r\n \r\nData Science for Underprivileged youths \r\nJune 2025 - PRESENT \r\nCurrently working on an initiative: \r\n-  Teaching children at government schools basic data science skills \r\n-  The course content will extend to basic machine learning. \r\n----------------Page (1) Break----------------\r\n-  Ideally, by the end, the children will have all the skills expected in \r\nan entry level data science job. \r\n \r\nSAT AI Website \r\nJuly  2025-PRESENT \r\nHave made and deployed a website: \r\n-  That provides the following AI based SAT english tools \r\n-  20 question practice tests topic wise and for all topics with \r\nadditional customisability \r\n-  A question solver to help elucidate the workings behind certain \r\nquestions. \r\n \r\n \r\nTalisma / Intern \r\nJune 2025 - August 2025 \r\n-  Worked on a multitude of projects during my internships \r\n-  Created an OCR program with three major functions: \r\n-  Summarising a document(Aadhaar, PAN, etc) to extract \r\nthe key details. \r\n-  Comparing a document to some text in a form. \r\nApplicable in registration scenarios to eliminate the \r\nneed of manually checking if the details align. \r\n-  Comparing two documents. Similar applications. \r\n-  Then I expanded onto these three to specialise for \r\nhandwritten documents such as FIRs. This version \r\ncreated a table to neatly present all the information. \r\n-  Created an email analysis and response project which extracts \r\nkey points from an email, and then using a knowledge base \r\ngenerates a recommended output. \r\n-  Expanded on this by using Talisma’s custom API instead \r\nof generic LLM APIs \r\n-  Applicable in any business with a customer support or \r\nemail contact service \r\n-  Created an Interactive student LMS that has two main features: \r\nAssignment taking(generated with AI) and content learning(also \r\nAI generated). These were created based on provided topics and \r\nthree links for these topics. \r\n-  Created a “university response” AI product that has the \r\ninformation of a university’s FAQ and their student spreadsheet. \r\nCertain questions can be asked to this AI based on these two \r\ndocuments and it parses through all the data and provides an \r\noutput. \r\n-  Applicable for any university responses(including email) \r\nand also for internal university purposes. \r\n-  Lastly, I created an “API factory.” While the basic code can be \r\nrepurposed for anything, I was told to expand it for the purposes \r\nof the first project. Essentially, a customer can create their OWN \r\ncustom api that can fulfill any of the three roles described in the \r\nfirst project with any degree of customisation that they wish. \r\n \r\n  \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n----------------Page (2) Break----------------\r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\nᅳ\r\n \r\nCourses \r\n \r\nData Science and Machine learning with Python \r\n-  Learnt a vast breadth of topics in Data science and Machine \r\nlearning, from simple data processing to the essential concepts \r\nbehind neural networks \r\n \r\nOMOTEC Expert Automation V2 \r\n-  Learnt circuit designing using online technologies and real live \r\ncircuits. I learned how to use arduino including C/C++ basics. \r\nᅳ\r\n \r\nAwards/Misc/Honors \r\n \r\nCleared UKMT SMC and the British Math Olympiad 1 and am \r\neligible for the Oxford Camp \r\n \r\nWon HackHarvard India and am eligible to participate in \r\nHackHarvard Boston \r\nIGCSE World Topper Extended and Additional Mathematics. \r\n \r\nClass Topper, English Language Subject Topper, Additional \r\nMathematics Subject Topper \r\n10th grade \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n----------------Page (3) Break----------------\r\n"
     },
     {
       "role": "assistant",
-      "content": "Thanks for uploading your CV (Resume (1).pdf)! Let me generate some personalized questions based on your profile..."
+      "content": "Thanks for uploading your CV (Resume (2).pdf)! Let me analyze your profile..."
     },
     {
       "role": "assistant",
-      "content": "The field of law is incredibly diverse, from advocating for tech startups in intellectual property to fighting for environmental justice. Which specific area of law or societal problem sparks your passion the most?"
+      "content": "Considering your goal to become a Product Manager at JP Morgan, what undergraduate majors are you planning to pursue (e.g., Computer Science, Business, Finance, or a combination) and do you have any preferred universities in mind?"
     },
     {
       "role": "user",
@@ -82,19 +90,35 @@
     },
     {
       "role": "assistant",
-      "content": "Your 6-year, part-time plan is commendable. Looking at the path ahead—from LSAT preparation to law school itself—what specific stage or skill do you anticipate being the most challenging to navigate with your time constraints?"
+      "content": "What specifically about finance or the work at JP Morgan attracts you to a Product Manager role there, as opposed to a similar role at a technology-focused company like Google or Microsoft?"
     },
     {
       "role": "user",
-      "content": "not sure"
+      "content": "I have connections at JP morgan"
     },
     {
       "role": "assistant",
-      "content": "Thinking beyond law school, what does a successful and fulfilling career look like for you? For example, are you drawn to the structure of a large firm, the autonomy of your own practice, or a service-oriented role in government or a non-profit?"
+      "content": "Your projects showcase deep expertise in AI/ML. At a financial firm like JP Morgan, this could be applied to diverse areas such as algorithmic trading, fraud detection, or wealth management AI advisors. Which of these FinTech domains, if any, aligns most with your interests?"
     },
     {
       "role": "user",
-      "content": "not sure"
+      "content": "Algorithmic trading"
+    },
+    {
+      "role": "assistant",
+      "content": "Since your choice of university and major is the most critical next step, are you leaning more towards a Computer Science degree from a top Indian institution like an IIT, or are you aiming for international universities in the US/UK, possibly with a dual major in Finance or Economics?"
+    },
+    {
+      "role": "user",
+      "content": "QUIT"
+    },
+    {
+      "role": "assistant",
+      "content": "To build a roadmap for a Product Manager role in algorithmic trading, it's crucial to blend your AI skills with finance. Are you more interested in pursuing a specialized undergraduate program like Quantitative Finance or a dual major in Computer Science and Finance/Economics, or do you plan to build this financial knowledge through internships and certifications alongside a core CS degree?"
+    },
+    {
+      "role": "user",
+      "content": "STOP"
     },
     {
       "role": "assistant",
@@ -103,27 +127,20 @@
   ],
   "hardcodedAnswers": {
     "age": "16",
-    "location": "United States",
-    "targetPosition": "lawyer",
-    "targetCompany": "No preference",
+    "location": "Bangalore, India",
+    "targetPosition": "Product Manager",
+    "targetCompany": "JP Morgan",
     "salaryRange": "$120k-$180k",
-    "timePerWeek": "10-20 hours",
-    "targetDate": "6 years"
+    "timePerWeek": "20+ hours",
+    "targetDate": "5 years",
+    "geographicMobility": "Yes, within my country"
   },
-  "personalizedAnswers": [
-    "not sure",
-    "not sure",
-    "not sure"
-  ],
-  "personalizedQuestions": [
-    "The field of law is incredibly diverse, from advocating for tech startups in intellectual property to fighting for environmental justice. Which specific area of law or societal problem sparks your passion the most?",
-    "Your 6-year, part-time plan is commendable. Looking at the path ahead—from LSAT preparation to law school itself—what specific stage or skill do you anticipate being the most challenging to navigate with your time constraints?",
-    "Thinking beyond law school, what does a successful and fulfilling career look like for you? For example, are you drawn to the structure of a large firm, the autonomy of your own practice, or a service-oriented role in government or a non-profit?"
-  ],
+  "personalizedAnswers": [],
+  "personalizedQuestions": [],
   "cvFile": {
-    "name": "Resume (1).pdf",
-    "size": 136456,
+    "name": "Resume (2).pdf",
+    "size": 131183,
     "type": "application/pdf"
   },
-  "timestamp": "2026-01-10T04:38:01.698Z"
+  "timestamp": "2026-01-10T17:35:08.317Z"
 }
