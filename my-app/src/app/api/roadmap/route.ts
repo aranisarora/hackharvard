@@ -7,12 +7,13 @@ let roadmapStore: {
     category: string;
     title: string;
     description: string;
-    checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
+    checklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
     deadline: string;
     startDate?: string;
     endDate?: string;
     isCompleted: boolean;
     courseLink?: string;
+    isLinked?: boolean;
     mentor?: {
       name: string;
       title: string;
@@ -42,14 +43,7 @@ const defaultRoadmapTasks = [
     endDate: "2025-04-15",
     isCompleted: false,
     courseLink: "https://aws.amazon.com/training/",
-    mentor: {
-      name: "Sarah Chen",
-      title: "Senior Cloud Architect",
-      company: "Google",
-      email: "sarah.chen@google.com",
-      profileImage: "https://i.pravatar.cc/150?img=12",
-      description: "Expert in cloud architecture with 10+ years of experience. Specialized in AWS and GCP solutions.",
-    },
+    // No mentor - skills are self-learned
   },
   {
     id: "2",
@@ -67,6 +61,14 @@ const defaultRoadmapTasks = [
     endDate: "2025-03-20",
     isCompleted: false,
     courseLink: "https://www.coursera.org/learn/microservices",
+    mentor: {
+      name: "Michael Rodriguez",
+      title: "Principal Engineer",
+      company: "Netflix",
+      email: "michael.rodriguez@netflix.com",
+      profileImage: "https://i.pravatar.cc/150?img=33",
+      description: "Has led projects at top tech companies, from concept to launch. Expert in microservices architecture and distributed systems.",
+    },
   },
   {
     id: "3",
@@ -83,6 +85,7 @@ const defaultRoadmapTasks = [
     endDate: "2025-05-01",
     isCompleted: false,
     courseLink: "https://cloud.google.com/certification",
+    // No mentor - certification is exam-focused
   },
   {
     id: "4",
@@ -98,6 +101,7 @@ const defaultRoadmapTasks = [
     startDate: "2025-04-01",
     endDate: "2025-06-30",
     isCompleted: false,
+    // No mentor - experience is gained through actually doing work
   },
   {
     id: "5",
@@ -113,6 +117,7 @@ const defaultRoadmapTasks = [
     startDate: "2025-01-01",
     endDate: "2025-02-28",
     isCompleted: false,
+    // No mentor - cv-feedback is self-review focused
   },
   {
     id: "6",
@@ -120,18 +125,21 @@ const defaultRoadmapTasks = [
     title: "Advanced React Patterns",
     description: "Master advanced React concepts including hooks, context, and performance optimization.",
     checklist: [
-      { id: "1", text: "Watch 'Advanced Hooks' module", isCompleted: false },
-      { id: "2", text: "Complete 'Context API' project", isCompleted: false },
-      { id: "3", text: "Finish 'Performance' section", isCompleted: false },
-      { id: "4", text: "Pass final assessment", isCompleted: false },
+      { id: "1", text: "Watch 'Advanced Hooks' module", isCompleted: false, link: "https://react.dev/learn/reusing-logic-with-custom-hooks" },
+      { id: "2", text: "Complete 'Context API' project", isCompleted: false, link: "https://react.dev/learn/passing-data-deeply-with-context" },
+      { id: "3", text: "Finish 'Performance' section", isCompleted: false, link: "https://react.dev/learn/render-and-commit" },
+      { id: "4", text: "Pass final assessment", isCompleted: false, link: "https://react.dev/learn" },
     ],
     deadline: "2025-03-30",
     startDate: "2025-03-01",
     endDate: "2025-03-30",
     isCompleted: false,
+    isLinked: false,
     courseLink: "https://react.dev",
+    // No mentor - course is self-paced learning
   },
 ];
+
 
 export async function GET() {
   // Simulate API delay

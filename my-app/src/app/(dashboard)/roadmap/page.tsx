@@ -14,12 +14,13 @@ interface RoadmapTask {
   category: string;
   title: string;
   description: string;
-  checklist?: Array<{ id: string; text: string; isCompleted: boolean }>;
+  checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
   deadline?: string;
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
   courseLink?: string;
+  isLinked?: boolean;
   mentor?: {
     name: string;
     title: string;
@@ -99,7 +100,7 @@ export default function RoadmapPage() {
     }
   };
 
-  const handleChecklistUpdate = async (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean }>) => {
+  const handleChecklistUpdate = async (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>) => {
     try {
       // Calculate new completed state
       const allCompleted = newChecklist.every((item) => item.isCompleted);
@@ -122,6 +123,27 @@ export default function RoadmapPage() {
     } catch (err) {
       console.error(err);
       alert("Failed to save progress update.");
+    }
+  };
+
+  const handleCourseLinked = async (taskId: string) => {
+    try {
+      const newTasks = tasks.map((task) => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            isLinked: true,
+          };
+        }
+        return task;
+      });
+
+      setTasks(newTasks);
+
+      // Persist the linked state
+      await saveRoadmap(newTasks);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -278,6 +300,8 @@ export default function RoadmapPage() {
                             taskId={task.id}
                             checklist={task.checklist ?? []}
                             onUpdate={handleChecklistUpdate}
+                            initiallyLinked={task.isLinked ?? false}
+                            onLinked={handleCourseLinked}
                           />
                         </div>
                       )}
@@ -324,9 +348,9 @@ export default function RoadmapPage() {
                         >
                           {item.text}
                         </span>
-                        {task.category.toLowerCase() === "course" && task.courseLink && (
+                        {item.link && (
                           <a
-                            href={task.courseLink}
+                            href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -416,6 +440,7 @@ export default function RoadmapPage() {
                         </Button>
                       </div>
                     )}
+
                   </div>
                 </div>
               </CardContent>

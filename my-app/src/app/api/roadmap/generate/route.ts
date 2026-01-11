@@ -84,11 +84,14 @@ const SingleTaskSchema = z.object({
     id: z.string(),
     text: z.string(),
     isCompleted: z.boolean().default(false),
+    link: z.string().optional().describe("URL link for this checklist item (required for Course category tasks)"),
   })),
   deadline: z.string().optional(),
   startDate: z.string(),
   endDate: z.string(),
   isCompleted: z.boolean().default(false),
+  courseLink: z.string().optional().describe("Main course URL (required for Course category tasks)"),
+  isLinked: z.boolean().default(false).describe("Whether external account is linked (for Course tasks)"),
 });
 
 const TaskBatchSchema = z.object({
@@ -141,7 +144,7 @@ Return JSON with field: "targetCV" (string)`;
 
 const TASKS_BATCH_1_PROMPT = `${BASE_CONTEXT}
 
-**TASK**: Generate exactly 2 SPECIFIC, GRANULAR career tasks focused on MANDATORY PREREQUISITES and FOUNDATIONAL REQUIREMENTS.
+**TASK**: Generate COMPREHENSIVE, SPECIFIC, GRANULAR career tasks focused on MANDATORY PREREQUISITES and FOUNDATIONAL REQUIREMENTS. Generate as many tasks as needed to fully cover this stage (typically 5-10 tasks).
 
 **⚠️ CRITICAL - PREREQUISITE PATHWAY ANALYSIS (READ FIRST)**:
 Before generating tasks, you MUST analyze the gap between the user's CURRENT education/experience and their TARGET career:
@@ -179,7 +182,7 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
    - ✅ GOOD: "Complete Bachelor's Degree in Pre-Law/Political Science", "Prepare for and Pass the LSAT (Target: 170+)", "Apply to Top 20 Law Schools"
 
 2. **Category = HIGH-LEVEL TAG** shown in top-right corner of task card
-   - You may create ANY category name that fits the task (up to 12 unique categories across all tasks)
+   - You may create ANY category name that fits the task
    - Examples: "Education", "Standardized Tests", "Professional Licensing", "Technical Skills", "Certifications", "Portfolio", "Networking", "Interview Prep", etc.
    - **CRITICAL - COURSE CATEGORY RULE**: Any task involving skill acquisition through:
      * Online courses (Coursera, Udemy, LinkedIn Learning, Pluralsight, etc.)
@@ -196,17 +199,43 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
    - Include progress milestones: "Complete first 50 problems", "Finish Module 3"
    - Include reading/study resources: "Read: Cracking the Coding Interview Ch.1-5"
    - For education: "Complete prerequisite courses", "Maintain 3.5+ GPA", "Research program requirements"
+   - **FOR COURSE CATEGORY ONLY**: Each checklist item MUST have a "link" field with a URL to the specific module/lesson
    - ❌ BAD: Listing separate tasks as checklist items
 
 4. **Description** = Brief explanation of WHY this task matters for their career goal
 
-5. **Dates**: YYYY-MM-DD format, starting from {{TODAY}}
+5. **COURSE CATEGORY REQUIREMENTS** (when category is "course"):
+   - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
+   - MUST include "isLinked" field set to false
+   - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
+   
+   **⚠️ CRITICAL: USE REAL COURSE URLs FROM THESE PLATFORMS:**
+   - Coursera: https://www.coursera.org/learn/[course-name]
+   - Udemy: https://www.udemy.com/course/[course-name]
+   - LinkedIn Learning: https://www.linkedin.com/learning/[course-name]
+   - edX: https://www.edx.org/learn/[topic]/[course]
+   - Pluralsight: https://www.pluralsight.com/courses/[course-name]
+   - freeCodeCamp: https://www.freecodecamp.org/learn/[certification]
+   - Khan Academy: https://www.khanacademy.org/[subject]
+   
+   **EXAMPLES OF REAL COURSES:**
+   - Machine Learning: "https://www.coursera.org/learn/machine-learning-course"
+   - Python: "https://www.udemy.com/course/100-days-of-code"
+   - AWS: "https://www.coursera.org/professional-certificates/aws-cloud-solutions-architect"
+   - React: "https://www.udemy.com/course/react-the-complete-guide-incl-redux"
+   - Data Science: "https://www.coursera.org/professional-certificates/ibm-data-science"
+   - SQL: "https://www.linkedin.com/learning/sql-essential-training"
+   
+   **Checklist items should link to REAL module/section URLs:**
+   - Example: { id: "1", text: "Complete Week 1: Introduction", isCompleted: false, link: "https://www.coursera.org/learn/machine-learning-course/home/week/1" }
 
-**OUTPUT**: JSON with field "tasks" (array of 2 task objects with id, category, title, description, checklist, startDate, endDate)`;
+6. **Dates**: YYYY-MM-DD format, starting from {{TODAY}}
+
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, category, title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
 
 const TASKS_BATCH_2_PROMPT = `${BASE_CONTEXT}
 
-**TASK**: Generate 2-3 ADDITIONAL SPECIFIC career tasks focusing on LATER-STAGE MILESTONES and CAREER ADVANCEMENT.
+**TASK**: Generate COMPREHENSIVE, ADDITIONAL SPECIFIC career tasks focusing on LATER-STAGE MILESTONES and CAREER ADVANCEMENT. Generate as many tasks as needed to fully cover this stage (typically 5-10 tasks).
 
 **⚠️ CRITICAL - BUILD ON PREREQUISITE PATHWAY**:
 These tasks should FOLLOW the foundational requirements. Consider what comes AFTER basic education/prerequisites:
@@ -238,7 +267,7 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
    - ✅ GOOD: "Pass the Bar Exam in [State]", "Complete 500 Supervised Clinical Hours", "Secure Summer Associate Position at Law Firm"
 
 2. **Category = HIGH-LEVEL TAG** - Create contextually relevant categories for each task
-   - You may create ANY category name that fits (up to 12 unique categories across all tasks)
+   - You may create ANY category name that fits
    - Examples: "Professional Licensing", "Graduate Programs", "Networking", "Experience", "Personal Branding", "Open Source", "Community", etc.
    - **CRITICAL - COURSE CATEGORY RULE**: Any task involving skill acquisition through:
      * Online courses (Coursera, Udemy, LinkedIn Learning, Pluralsight, etc.)
@@ -253,12 +282,27 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
 3. **Checklist = MILESTONES + RESOURCES** (3-5 items)
    - Progress markers: "Register for exam", "Complete practice tests", "Submit application"
    - Resources: "Study: Barbri/Kaplan prep materials", "Read: industry-specific guides"
+   - **FOR COURSE CATEGORY ONLY**: Each checklist item MUST have a "link" field with a URL to the specific module/lesson
 
 4. **Focus areas**: Professional licensing, graduate program completion, practical experience, networking
 
-5. **Dates**: YYYY-MM-DD format, after {{TODAY}} and AFTER the prerequisite tasks from Batch 1
+5. **COURSE CATEGORY REQUIREMENTS** (when category is "course"):
+   - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
+   - MUST include "isLinked" field set to false
+   - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
+   
+   **⚠️ USE REAL COURSE URLs FROM THESE PLATFORMS:**
+   - Coursera, Udemy, LinkedIn Learning, edX, Pluralsight, freeCodeCamp, Khan Academy
+   
+   **EXAMPLES:**
+   - Leadership: "https://www.coursera.org/specializations/strategic-leadership"
+   - Project Management: "https://www.coursera.org/professional-certificates/google-project-management"
+   - Business Analytics: "https://www.linkedin.com/learning/paths/become-a-business-analyst"
+   - Finance: "https://www.coursera.org/specializations/finance"
 
-**OUTPUT**: JSON with field "tasks" (array of 2-3 task objects with id, category, title, description, checklist, startDate, endDate)`;
+6. **Dates**: YYYY-MM-DD format, after {{TODAY}} and AFTER the prerequisite tasks from Batch 1
+
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, category, title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
 
 
 const DASHBOARD_USER_PROMPT = `${BASE_CONTEXT}
@@ -290,10 +334,11 @@ Return JSON with field: "categories" (array of category objects)`;
 
 export async function POST(request: Request) {
   try {
-    console.log("[Roadmap Generate] Starting 5-segment parallel generation...");
-    const { messages, onboardingData, resumes } = await request.json();
+    console.log("[Roadmap Generate] Starting roadmap generation...");
+    const { messages, onboardingData, resumes, targetCV: preGeneratedTargetCV } = await request.json();
     console.log("[Roadmap Generate] Messages:", messages?.length || 0);
     console.log("[Roadmap Generate] Resumes:", resumes?.length || 0);
+    console.log("[Roadmap Generate] Pre-generated Target CV provided:", !!preGeneratedTargetCV);
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messages are required" }, { status: 400 });
@@ -335,28 +380,35 @@ export async function POST(request: Request) {
       return `${segmentPrompt.replace(/{{TODAY}}/g, today)}\n\n---\n${sharedContext}`;
     };
 
-    // PHASE 1: Generate Target CV first (so roadmap can use it as context)
-    console.log("[Roadmap Generate] Phase 1: Generating Target CV...");
     const startTime = Date.now();
+    let generatedTargetCV: string;
 
-    const targetCVResult = await withTimeout(
-      generateStructuredResponse(messages, {
-        systemPrompt: buildPrompt(TARGET_CV_PROMPT),
-        schema: TargetCVSchema,
-        maxOutputTokens: 16384,
-      }),
-      600000,
-      "Target CV generation"
-    ).catch(err => {
-      console.error("[Phase 1 - Target CV] Error:", err);
-      return { object: { targetCV: "" } };
-    });
+    // PHASE 1: Generate Target CV first (so roadmap can use it as context)
+    // Skip if targetCV is already provided (pre-generated via separate API)
+    if (preGeneratedTargetCV) {
+      console.log("[Roadmap Generate] Using pre-generated Target CV (skipping Phase 1)");
+      generatedTargetCV = preGeneratedTargetCV;
+    } else {
+      console.log("[Roadmap Generate] Phase 1: Generating Target CV...");
 
-    const cvDuration = Date.now() - startTime;
-    console.log(`[Roadmap Generate] Phase 1 completed in ${cvDuration}ms`);
+      const targetCVResult = await withTimeout(
+        generateStructuredResponse(messages, {
+          systemPrompt: buildPrompt(TARGET_CV_PROMPT),
+          schema: TargetCVSchema,
+          maxOutputTokens: 16384,
+        }),
+        600000,
+        "Target CV generation"
+      ).catch(err => {
+        console.error("[Phase 1 - Target CV] Error:", err);
+        return { object: { targetCV: "" } };
+      });
 
-    // Add the generated target CV to context for roadmap generation
-    const generatedTargetCV = targetCVResult.object.targetCV || "";
+      const cvDuration = Date.now() - startTime;
+      console.log(`[Roadmap Generate] Phase 1 completed in ${cvDuration}ms`);
+      generatedTargetCV = targetCVResult.object.targetCV || "";
+    }
+
     const initialCV = extractedResumeText || "";
 
     const buildPromptWithCV = (segmentPrompt: string) => {
@@ -565,7 +617,7 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
     // Assemble final response
     const finalData = {
       initialCV: extractedResumeText || "",
-      targetCV: targetCVResult.object.targetCV || "",
+      targetCV: generatedTargetCV || "",
       roadmap: {
         tasks: allTasks,
       },

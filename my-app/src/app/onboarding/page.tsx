@@ -91,6 +91,9 @@ export default function OnboardingPage() {
   const [personalizedQA, setPersonalizedQA] = useState<Array<{ question: string; answer: string }>>([]);
   const [currentPersonalizedQuestion, setCurrentPersonalizedQuestion] = useState<string>("");
 
+  // Developer mode - skips personalized questions
+  const [devMode, setDevMode] = useState(false);
+
   // Fetch user data on mount
   useEffect(() => {
     async function fetchUserData() {
@@ -339,43 +342,55 @@ export default function OnboardingPage() {
       };
       setMessages((prev) => [...prev, uploadMsg]);
 
-      // Call API to get first personalized question (or stop if enough info)
-      const questionsResponse = await fetch("/api/onboarding/generate-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hardcodedAnswers,
-          cvText: extractedText || "",
-          previousQA: [],
-        }),
-      });
-
-      if (!questionsResponse.ok) {
-        throw new Error("Failed to generate personalized question");
-      }
-
-      const result = await questionsResponse.json();
-
-      if (result.stop || !result.question) {
-        // AI has enough information from CV, go directly to roadmap
+      // Developer mode: skip personalized questions entirely
+      if (devMode) {
         setCurrentPhase('complete');
         setReadyForRoadmap(true);
         const completeMsg: Message = {
           role: "assistant",
-          content: "Great! Based on your CV and profile, I have all the information I need to create your personalized career roadmap. Ready to generate it?",
+          content: "[Dev Mode] Skipping personalized questions. Ready to generate your roadmap!",
           id: "complete",
         };
         setMessages((prev) => [...prev, completeMsg]);
       } else {
-        // Show first personalized question
-        setCurrentPhase('personalized');
-        setCurrentPersonalizedQuestion(result.question);
-        const firstPersonalizedMsg: Message = {
-          role: "assistant",
-          content: result.question,
-          id: "pq-0",
-        };
-        setMessages((prev) => [...prev, firstPersonalizedMsg]);
+        // Call API to get first personalized question (or stop if enough info)
+        const questionsResponse = await fetch("/api/onboarding/generate-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hardcodedAnswers,
+            cvText: extractedText || "",
+            previousQA: [],
+          }),
+        });
+
+        if (!questionsResponse.ok) {
+          throw new Error("Failed to generate personalized question");
+        }
+
+        const result = await questionsResponse.json();
+
+        if (result.stop || !result.question) {
+          // AI has enough information from CV, go directly to roadmap
+          setCurrentPhase('complete');
+          setReadyForRoadmap(true);
+          const completeMsg: Message = {
+            role: "assistant",
+            content: "Great! Based on your CV and profile, I have all the information I need to create your personalized career roadmap. Ready to generate it?",
+            id: "complete",
+          };
+          setMessages((prev) => [...prev, completeMsg]);
+        } else {
+          // Show first personalized question
+          setCurrentPhase('personalized');
+          setCurrentPersonalizedQuestion(result.question);
+          const firstPersonalizedMsg: Message = {
+            role: "assistant",
+            content: result.question,
+            id: "pq-0",
+          };
+          setMessages((prev) => [...prev, firstPersonalizedMsg]);
+        }
       }
     } catch (error) {
       console.error("Error uploading CV:", error);
@@ -455,7 +470,18 @@ export default function OnboardingPage() {
       <header className="p-6 border-b border-border">
         <div className="container mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">PathForge</h1>
-          <span className="text-sm text-muted-foreground">Onboarding</span>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={devMode}
+                onChange={(e) => setDevMode(e.target.checked)}
+                className="w-3 h-3"
+              />
+              Dev Mode
+            </label>
+            <span className="text-sm text-muted-foreground">Onboarding</span>
+          </div>
         </div>
       </header>
 

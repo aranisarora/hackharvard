@@ -18,7 +18,7 @@
     },
     {
       "role": "user",
-      "content": "Bangalore, India"
+      "content": "San Francisco, USA"
     },
     {
       "role": "assistant",
@@ -34,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "JP Morgan"
+      "content": "Tesla"
     },
     {
       "role": "assistant",
@@ -42,7 +42,7 @@
     },
     {
       "role": "user",
-      "content": "$120k-$180k"
+      "content": "$80k-$120k"
     },
     {
       "role": "assistant",
@@ -66,7 +66,7 @@
     },
     {
       "role": "user",
-      "content": "Yes, within my country"
+      "content": "Yes, anywhere globally"
     },
     {
       "role": "assistant",
@@ -82,58 +82,18 @@
     },
     {
       "role": "assistant",
-      "content": "Considering your goal to become a Product Manager at JP Morgan, what undergraduate majors are you planning to pursue (e.g., Computer Science, Business, Finance, or a combination) and do you have any preferred universities in mind?"
-    },
-    {
-      "role": "user",
-      "content": "not sure"
-    },
-    {
-      "role": "assistant",
-      "content": "What specifically about finance or the work at JP Morgan attracts you to a Product Manager role there, as opposed to a similar role at a technology-focused company like Google or Microsoft?"
-    },
-    {
-      "role": "user",
-      "content": "I have connections at JP morgan"
-    },
-    {
-      "role": "assistant",
-      "content": "Your projects showcase deep expertise in AI/ML. At a financial firm like JP Morgan, this could be applied to diverse areas such as algorithmic trading, fraud detection, or wealth management AI advisors. Which of these FinTech domains, if any, aligns most with your interests?"
-    },
-    {
-      "role": "user",
-      "content": "Algorithmic trading"
-    },
-    {
-      "role": "assistant",
-      "content": "Since your choice of university and major is the most critical next step, are you leaning more towards a Computer Science degree from a top Indian institution like an IIT, or are you aiming for international universities in the US/UK, possibly with a dual major in Finance or Economics?"
-    },
-    {
-      "role": "user",
-      "content": "QUIT"
-    },
-    {
-      "role": "assistant",
-      "content": "To build a roadmap for a Product Manager role in algorithmic trading, it's crucial to blend your AI skills with finance. Are you more interested in pursuing a specialized undergraduate program like Quantitative Finance or a dual major in Computer Science and Finance/Economics, or do you plan to build this financial knowledge through internships and certifications alongside a core CS degree?"
-    },
-    {
-      "role": "user",
-      "content": "STOP"
-    },
-    {
-      "role": "assistant",
-      "content": "Perfect! I have all the information I need to create your personalized career roadmap. Ready to generate it?"
+      "content": "[Dev Mode] Skipping personalized questions. Ready to generate your roadmap!"
     }
   ],
   "hardcodedAnswers": {
     "age": "16",
-    "location": "Bangalore, India",
+    "location": "San Francisco, USA",
     "targetPosition": "Product Manager",
-    "targetCompany": "JP Morgan",
-    "salaryRange": "$120k-$180k",
+    "targetCompany": "Tesla",
+    "salaryRange": "$80k-$120k",
     "timePerWeek": "20+ hours",
     "targetDate": "5 years",
-    "geographicMobility": "Yes, within my country"
+    "geographicMobility": "Yes, anywhere globally"
   },
   "personalizedAnswers": [],
   "personalizedQuestions": [],
@@ -142,5 +102,5 @@
     "size": 131183,
     "type": "application/pdf"
   },
-  "timestamp": "2026-01-10T17:35:08.317Z"
+  "timestamp": "2026-01-11T03:49:49.719Z"
 }

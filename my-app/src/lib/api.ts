@@ -120,12 +120,13 @@ export async function getRoadmapTasks() {
       category: string;
       title: string;
       description: string;
-      checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
+      checklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
       deadline: string;
       startDate?: string;
       endDate?: string;
       isCompleted: boolean;
       courseLink?: string;
+      isLinked?: boolean;
       mentor?: {
         name: string;
         title: string;
@@ -170,12 +171,13 @@ export async function saveRoadmap(tasks: Array<{
   category: string;
   title: string;
   description: string;
-  checklist?: Array<{ id: string; text: string; isCompleted: boolean }>;
+  checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
   deadline?: string;
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
   courseLink?: string;
+  isLinked?: boolean;
   mentor?: {
     name: string;
     title: string;
@@ -298,8 +300,10 @@ export async function sendOnboardingMessage(
 // Roadmap Generation API
 const ROADMAP_GENERATION_TIMEOUT_MS = 660_000; // 11 minutes (slightly more than server's 10 min timeout)
 const ROADMAP_GENERATION_MAX_ATTEMPTS = 2;
+const TARGET_CV_GENERATION_TIMEOUT_MS = 330_000; // 5.5 minutes
 
-export async function generateRoadmap(
+// Generate Target CV separately (for background generation during user review)
+export async function generateTargetCV(
   messages: Array<{
     role: "user" | "assistant";
     content?: string;
@@ -308,7 +312,38 @@ export async function generateRoadmap(
   onboardingData?: any,
   resumes?: any[]
 ) {
-  const body = JSON.stringify({ messages, onboardingData, resumes });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    TARGET_CV_GENERATION_TIMEOUT_MS
+  );
+
+  try {
+    return await fetchAPI<{
+      success: boolean;
+      targetCV: string;
+      initialCV: string;
+    }>("/roadmap/generate-target-cv", {
+      method: "POST",
+      body: JSON.stringify({ messages, onboardingData, resumes }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function generateRoadmap(
+  messages: Array<{
+    role: "user" | "assistant";
+    content?: string;
+    parts?: Array<{ type: string; text: string }>;
+  }>,
+  onboardingData?: any,
+  resumes?: any[],
+  targetCV?: string // Optional: pre-generated target CV to skip Phase 1
+) {
+  const body = JSON.stringify({ messages, onboardingData, resumes, targetCV });
 
   async function attemptRequest() {
     const controller = new AbortController();
