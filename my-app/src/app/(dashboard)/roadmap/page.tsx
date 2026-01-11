@@ -11,7 +11,7 @@ import { CourseLinkButton } from "./CourseLinkButton";
 
 interface RoadmapTask {
   id: string;
-  category: string;
+  categories: string[];
   title: string;
   description: string;
   checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
@@ -41,6 +41,11 @@ const formatCategoryDisplay = (category: string): string => {
     .split(/[\s-]+/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+};
+
+// Check if any of the task's categories is "course"
+const isCourseTask = (categories: string[]): boolean => {
+  return categories.some(c => c.toLowerCase() === "course");
 };
 
 export default function RoadmapPage() {
@@ -290,11 +295,15 @@ export default function RoadmapPage() {
                         <Circle className="h-5 w-5 text-muted-foreground" />
                       )}
                       <CardTitle>{task.title}</CardTitle>
-                      <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
-                        {formatCategoryDisplay(task.category)}
-                      </span>
+                      <div className="flex gap-1 flex-wrap">
+                        {task.categories.map(cat => (
+                          <span key={cat} className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
+                            {formatCategoryDisplay(cat)}
+                          </span>
+                        ))}
+                      </div>
 
-                      {task.category.toLowerCase() === "course" && (
+                      {isCourseTask(task.categories) && (
                         <div className="ml-auto">
                           <CourseLinkButton
                             taskId={task.id}

@@ -77,7 +77,7 @@ const TargetCVSchema = z.object({
 // Segment 2 & 3: Individual roadmap tasks (split into batches)
 const SingleTaskSchema = z.object({
   id: z.string(),
-  category: z.string(),
+  categories: z.array(z.string()).min(1).max(3).describe("1-3 distinct category tags for this task"),
   title: z.string(),
   description: z.string(),
   checklist: z.array(z.object({
@@ -181,9 +181,16 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
    - ❌ BAD: "Improve coding skills", "Obtain certifications", "Build experience"
    - ✅ GOOD: "Complete Bachelor's Degree in Pre-Law/Political Science", "Prepare for and Pass the LSAT (Target: 170+)", "Apply to Top 20 Law Schools"
 
-2. **Category = HIGH-LEVEL TAG** shown in top-right corner of task card
-   - You may create ANY category name that fits the task
-   - Examples: "Education", "Standardized Tests", "Professional Licensing", "Technical Skills", "Certifications", "Portfolio", "Networking", "Interview Prep", etc.
+2. **Categories = BROAD, GENERIC HIGH-LEVEL TAGS** (1-3 per task)
+   - **USE THE SMALLEST NUMBER OF BROAD CATEGORIES POSSIBLE** - fewer is better
+   - Categories should be BROAD and GENERIC, NOT specific to a topic or technology
+   - ❌ BAD specific categories: "Product Management", "Cloud Computing", "Machine Learning", "Data Analytics", "AWS", "Leadership Development"
+   - ✅ GOOD broad categories: "Certifications", "Skills", "Education", "Experience", "Portfolio", "Networking", "Interview Prep", "Leadership"
+   - Put ALL certifications (AWS, PMP, Google Cloud, etc.) under ONE "Certifications" category
+   - Put ALL skill-building courses under ONE "course" category (not separate topic categories)
+   - Put ALL work/internship experience under ONE "Experience" category
+   - Categories MUST be mutually exclusive - NO overlapping concepts
+   - ❌ BAD: Using both "Experience" and "Work Experience" (these overlap)
    - **CRITICAL - COURSE CATEGORY RULE**: Any task involving skill acquisition through:
      * Online courses (Coursera, Udemy, LinkedIn Learning, Pluralsight, etc.)
      * Learning platforms or educational websites
@@ -191,7 +198,7 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
      * Video-based learning series
      * Certification prep courses
      * MOOCs or self-paced learning programs
-   - **MUST use category: "course"** (lowercase, exactly as shown)
+   - **MUST include "course" in categories array** (lowercase, exactly as shown)
    - NOTE: Not every roadmap needs a "course" category - only use it when tasks involve learning from courses
    - Use "Certifications" ONLY for the actual exam/certification itself, NOT the prep course
 
@@ -204,7 +211,7 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
 
 4. **Description** = Brief explanation of WHY this task matters for their career goal
 
-5. **COURSE CATEGORY REQUIREMENTS** (when category is "course"):
+5. **COURSE CATEGORY REQUIREMENTS** (when "course" is in categories array):
    - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
    - MUST include "isLinked" field set to false
    - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
@@ -231,7 +238,7 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
 
 6. **Dates**: YYYY-MM-DD format, starting from {{TODAY}}
 
-**OUTPUT**: JSON with field "tasks" (array of task objects with id, category, title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, categories (array of 1-3 strings), title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
 
 const TASKS_BATCH_2_PROMPT = `${BASE_CONTEXT}
 
@@ -266,9 +273,10 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
    - ❌ BAD: "Network with professionals", "Gain industry exposure"
    - ✅ GOOD: "Pass the Bar Exam in [State]", "Complete 500 Supervised Clinical Hours", "Secure Summer Associate Position at Law Firm"
 
-2. **Category = HIGH-LEVEL TAG** - Create contextually relevant categories for each task
-   - You may create ANY category name that fits
-   - Examples: "Professional Licensing", "Graduate Programs", "Networking", "Experience", "Personal Branding", "Open Source", "Community", etc.
+2. **Categories = BROAD, GENERIC HIGH-LEVEL TAGS** (1-3 per task) - Use the SAME category names as Batch 1
+   - **REUSE THE SAME CATEGORIES FROM BATCH 1** - do NOT create new categories
+   - Keep the total number of categories minimal - use BROAD categories like "Certifications", "Skills", "Experience"
+   - ❌ BAD: Creating new topic-specific categories like "Cloud Computing", "Product Management", or "Data Science"
    - **CRITICAL - COURSE CATEGORY RULE**: Any task involving skill acquisition through:
      * Online courses (Coursera, Udemy, LinkedIn Learning, Pluralsight, etc.)
      * Learning platforms or educational websites
@@ -276,7 +284,7 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
      * Video-based learning series
      * Certification prep courses
      * MOOCs or self-paced learning programs
-   - **MUST use category: "course"** (lowercase, exactly as shown)
+   - **MUST include "course" in categories array** (lowercase, exactly as shown)
    - NOTE: Not every roadmap needs a "course" category - only use it when tasks involve learning from courses
 
 3. **Checklist = MILESTONES + RESOURCES** (3-5 items)
@@ -286,7 +294,7 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
 
 4. **Focus areas**: Professional licensing, graduate program completion, practical experience, networking
 
-5. **COURSE CATEGORY REQUIREMENTS** (when category is "course"):
+5. **COURSE CATEGORY REQUIREMENTS** (when "course" is in categories array):
    - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
    - MUST include "isLinked" field set to false
    - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
@@ -302,7 +310,7 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
 
 6. **Dates**: YYYY-MM-DD format, after {{TODAY}} and AFTER the prerequisite tasks from Batch 1
 
-**OUTPUT**: JSON with field "tasks" (array of task objects with id, category, title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, categories (array of 1-3 strings), title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
 
 
 const DASHBOARD_USER_PROMPT = `${BASE_CONTEXT}
@@ -516,25 +524,27 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
         completedChecklist: number;
       }>();
 
-      // Group tasks by category
+      // Group tasks by category (tasks can belong to multiple categories)
       tasks.forEach(task => {
-        const categoryKey = task.category || "General";
-        if (!categoryMap.has(categoryKey)) {
-          categoryMap.set(categoryKey, {
-            tasks: [],
-            totalChecklist: 0,
-            completedChecklist: 0,
+        const categoryKeys = task.categories || ["General"];
+        categoryKeys.forEach((categoryKey: string) => {
+          if (!categoryMap.has(categoryKey)) {
+            categoryMap.set(categoryKey, {
+              tasks: [],
+              totalChecklist: 0,
+              completedChecklist: 0,
+            });
+          }
+          const cat = categoryMap.get(categoryKey)!;
+          cat.tasks.push({
+            title: task.title || "Untitled Task",
+            completed: task.isCompleted || false,
           });
-        }
-        const cat = categoryMap.get(categoryKey)!;
-        cat.tasks.push({
-          title: task.title || "Untitled Task",
-          completed: task.isCompleted || false,
+          // Count checklist items for progress
+          const checklist = task.checklist || [];
+          cat.totalChecklist += checklist.length;
+          cat.completedChecklist += checklist.filter((c: any) => c.isCompleted).length;
         });
-        // Count checklist items for progress
-        const checklist = task.checklist || [];
-        cat.totalChecklist += checklist.length;
-        cat.completedChecklist += checklist.filter((c: any) => c.isCompleted).length;
       });
 
       // Category visual config - expanded to handle common AI-generated names

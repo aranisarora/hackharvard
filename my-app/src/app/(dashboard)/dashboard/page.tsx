@@ -148,7 +148,7 @@ export default function DashboardPage() {
           date.setHours(0, 0, 0, 0);
 
           if (date >= startDate && date <= endDate) {
-            categories.push(task.category);
+            categories.push(...(task.categories || []));
           }
         }
       });
@@ -362,7 +362,7 @@ export default function DashboardPage() {
                     {tasks.map((task: any, idx: number) => {
                       // Find matching roadmap task to get dates
                       const roadmapTask = roadmapTasks.find(
-                        (rt: any) => rt.title === task.title && rt.category === category.id
+                        (rt: any) => rt.title === task.title && rt.categories?.includes(category.id)
                       );
                       const deadline = roadmapTask?.endDate || roadmapTask?.deadline;
 
@@ -476,7 +476,7 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-1 text-xs">
                 <span className="text-muted-foreground font-medium">Legend:</span>
                 <div className="flex flex-col gap-1">
-                  {Array.from(new Set(roadmapTasks.map(t => t.category).filter(Boolean))).map((cat) => {
+                  {Array.from(new Set(roadmapTasks.flatMap(t => t.categories || []).filter(Boolean))).map((cat) => {
                     const colors = getCategoryColors(cat);
                     return (
                       <div key={cat} className="flex items-center gap-2">

@@ -29,22 +29,24 @@ const MENTOR_CATEGORIES = new Set([
  * Check if a category should receive a mentor
  * Only Projects and Research categories get mentors
  */
-export function shouldHaveMentor(category: string): boolean {
-    const lowerCategory = category.toLowerCase();
+export function shouldHaveMentor(categories: string[]): boolean {
+    return categories.some(category => {
+        const lowerCategory = category.toLowerCase();
 
-    // Check for exact match first
-    if (MENTOR_CATEGORIES.has(lowerCategory)) {
-        return true;
-    }
-
-    // Check for partial matches (e.g., "personal projects" contains "project")
-    for (const mentorCategory of MENTOR_CATEGORIES) {
-        if (lowerCategory.includes(mentorCategory) || mentorCategory.includes(lowerCategory)) {
+        // Check for exact match first
+        if (MENTOR_CATEGORIES.has(lowerCategory)) {
             return true;
         }
-    }
 
-    return false;
+        // Check for partial matches (e.g., "personal projects" contains "project")
+        for (const mentorCategory of MENTOR_CATEGORIES) {
+            if (lowerCategory.includes(mentorCategory) || mentorCategory.includes(lowerCategory)) {
+                return true;
+            }
+        }
+
+        return false;
+    });
 }
 
 // First names pool for variety
@@ -335,15 +337,21 @@ export function generateMentor(category: string, taskTitle: string): Mentor {
 }
 
 /**
- * Conditionally generate a mentor for a task based on its category
- * Returns undefined if the category should not have a mentor
+ * Conditionally generate a mentor for a task based on its categories
+ * Returns undefined if none of the categories should have a mentor
  */
 export function generateMentorForTask(
-    category: string,
+    categories: string[],
     taskTitle: string
 ): Mentor | undefined {
-    if (!shouldHaveMentor(category)) {
+    if (!shouldHaveMentor(categories)) {
         return undefined;
     }
-    return generateMentor(category, taskTitle);
+    // Use the first mentor-eligible category for generating mentor details
+    const mentorCategory = categories.find(c => {
+        const lower = c.toLowerCase();
+        return MENTOR_CATEGORIES.has(lower) ||
+            [...MENTOR_CATEGORIES].some(mc => lower.includes(mc) || mc.includes(lower));
+    }) || categories[0];
+    return generateMentor(mentorCategory, taskTitle);
 }
