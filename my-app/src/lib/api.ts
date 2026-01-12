@@ -117,7 +117,7 @@ export async function getRoadmapTasks() {
   return fetchAPI<{
     tasks: Array<{
       id: string;
-      categories: string[];
+      category: string;
       title: string;
       description: string;
       checklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
@@ -168,7 +168,7 @@ export async function updateTaskDates(
 
 export async function saveRoadmap(tasks: Array<{
   id: string;
-  categories: string[];
+  category: string;
   title: string;
   description: string;
   checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
@@ -361,7 +361,7 @@ export async function generateRoadmap(
           roadmap: {
             tasks: Array<{
               id: string;
-              categories: string[];
+              category: string;
               title: string;
               description: string;
               checklist: Array<{ id: string; text: string; isCompleted: boolean }>;

@@ -77,6 +77,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -86,24 +87,29 @@
   .bg-sidebar {
     background-color: hsl(var(--sidebar-background));
   }
+
   .text-sidebar-foreground {
     color: hsl(var(--sidebar-foreground));
   }
+
   .bg-sidebar-accent {
     background-color: hsl(var(--sidebar-accent));
   }
+
   .text-sidebar-accent-foreground {
     color: hsl(var(--sidebar-accent-foreground));
   }
+
   .border-sidebar-border {
     border-color: hsl(var(--sidebar-border));
   }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 }
-

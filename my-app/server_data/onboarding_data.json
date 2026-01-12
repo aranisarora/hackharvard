@@ -10,7 +10,7 @@
     },
     {
       "role": "user",
-      "content": "16"
+      "content": "1"
     },
     {
       "role": "assistant",
@@ -18,7 +18,7 @@
     },
     {
       "role": "user",
-      "content": "San Francisco, USA"
+      "content": "India"
     },
     {
       "role": "assistant",
@@ -26,7 +26,7 @@
     },
     {
       "role": "user",
-      "content": "Product Manager"
+      "content": "Programmer"
     },
     {
       "role": "assistant",
@@ -34,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "Tesla"
+      "content": "Amazon"
     },
     {
       "role": "assistant",
@@ -42,7 +42,7 @@
     },
     {
       "role": "user",
-      "content": "$80k-$120k"
+      "content": "$120k-$180k"
     },
     {
       "role": "assistant",
@@ -50,7 +50,7 @@
     },
     {
       "role": "user",
-      "content": "20+ hours"
+      "content": "10-20 hours"
     },
     {
       "role": "assistant",
@@ -82,16 +82,32 @@
     },
     {
       "role": "assistant",
-      "content": "[Dev Mode] Skipping personalized questions. Ready to generate your roadmap!"
+      "content": "Given your 5-year timeline to become a Programmer at Amazon, what are your plans for your undergraduate education, including your target universities and your intended major (e.g., Computer Science, AI/ML, etc.)?"
+    },
+    {
+      "role": "user",
+      "content": "k"
+    },
+    {
+      "role": "assistant",
+      "content": "Your CV is impressive for a high school student. To tailor your 5-year roadmap to Amazon, could you specify your intended undergraduate major (e.g., Computer Science, AI/ML) and list a few of your top-choice universities?"
+    },
+    {
+      "role": "user",
+      "content": "STOP"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect! I have all the information I need to create your personalized career roadmap. Ready to generate it?"
     }
   ],
   "hardcodedAnswers": {
-    "age": "16",
-    "location": "San Francisco, USA",
-    "targetPosition": "Product Manager",
-    "targetCompany": "Tesla",
-    "salaryRange": "$80k-$120k",
-    "timePerWeek": "20+ hours",
+    "age": "1",
+    "location": "India",
+    "targetPosition": "Programmer",
+    "targetCompany": "Amazon",
+    "salaryRange": "$120k-$180k",
+    "timePerWeek": "10-20 hours",
     "targetDate": "5 years",
     "geographicMobility": "Yes, anywhere globally"
   },
@@ -102,5 +118,5 @@
     "size": 131183,
     "type": "application/pdf"
   },
-  "timestamp": "2026-01-11T03:49:49.719Z"
+  "timestamp": "2026-01-12T06:19:19.990Z"
 }

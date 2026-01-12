@@ -127,17 +127,17 @@ export default function DashboardPage() {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
     // Create calendar grid
-    const calendarDays: Array<{ date: number; categories: string[] }> = [];
+    const calendarDays: Array<{ date: number; category: string | null }> = [];
 
     // Add empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
-      calendarDays.push({ date: 0, categories: [] });
+      calendarDays.push({ date: 0, category: null });
     }
 
     // Add days of month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentYear, currentMonth, day);
-      const categories: string[] = [];
+      let dayCategory: string | null = null;
 
       roadmapTasks.forEach(task => {
         if (task.startDate && task.endDate && !task.isCompleted) {
@@ -147,13 +147,16 @@ export default function DashboardPage() {
           endDate.setHours(0, 0, 0, 0);
           date.setHours(0, 0, 0, 0);
 
-          if (date >= startDate && date <= endDate) {
-            categories.push(...(task.categories || []));
+          if (date >= startDate && date <= endDate && task.category) {
+            // Use the first task's category found for this day
+            if (!dayCategory) {
+              dayCategory = task.category;
+            }
           }
         }
       });
 
-      calendarDays.push({ date: day, categories: [...new Set(categories)] });
+      calendarDays.push({ date: day, category: dayCategory });
     }
 
     return { calendarDays, currentMonth, currentYear };
@@ -362,7 +365,7 @@ export default function DashboardPage() {
                     {tasks.map((task: any, idx: number) => {
                       // Find matching roadmap task to get dates
                       const roadmapTask = roadmapTasks.find(
-                        (rt: any) => rt.title === task.title && rt.categories?.includes(category.id)
+                        (rt: any) => rt.title === task.title && rt.category === category.id
                       );
                       const deadline = roadmapTask?.endDate || roadmapTask?.deadline;
 
@@ -432,12 +435,9 @@ export default function DashboardPage() {
               ))}
               {calendarDays.map((day, index) => {
                 const getDayBackgroundColor = () => {
-                  if (day.categories.length === 0) return "bg-background border-muted border";
-                  const primaryCategory = day.categories[0];
-                  const colors = getCategoryColors(primaryCategory);
-                  const borderWidthClass = day.categories.length > 1 ? "border-2" : "border";
-
-                  return `${colors.dayBg} ${colors.dayBorder} ${borderWidthClass}`;
+                  if (!day.category) return "bg-background border-muted border";
+                  const colors = getCategoryColors(day.category);
+                  return `${colors.dayBg} ${colors.dayBorder} border`;
                 };
 
                 return (
@@ -452,18 +452,11 @@ export default function DashboardPage() {
                       <>
                         <div className="font-medium text-sm mb-0.5">{day.date}</div>
                         <div className="flex flex-wrap gap-0.5 justify-center items-center min-h-[12px]">
-                          {day.categories.slice(0, 4).map((cat) => {
-                            const colors = getCategoryColors(cat);
-                            return (
-                              <div
-                                key={cat}
-                                className={`w-2 h-2 rounded-full ${colors.dayDot} border border-white/50`}
-                                title={cat}
-                              />
-                            );
-                          })}
-                          {day.categories.length > 4 && (
-                            <div className="text-[8px] text-muted-foreground font-medium">+{day.categories.length - 4}</div>
+                          {day.category && (
+                            <div
+                              className={`w-2 h-2 rounded-full ${getCategoryColors(day.category).dayDot} border border-white/50`}
+                              title={day.category}
+                            />
                           )}
                         </div>
                       </>
@@ -476,7 +469,7 @@ export default function DashboardPage() {
               <div className="mt-4 space-y-1 text-xs">
                 <span className="text-muted-foreground font-medium">Legend:</span>
                 <div className="flex flex-col gap-1">
-                  {Array.from(new Set(roadmapTasks.flatMap(t => t.categories || []).filter(Boolean))).map((cat) => {
+                  {Array.from(new Set(roadmapTasks.map(t => t.category).filter(Boolean))).map((cat) => {
                     const colors = getCategoryColors(cat);
                     return (
                       <div key={cat} className="flex items-center gap-2">

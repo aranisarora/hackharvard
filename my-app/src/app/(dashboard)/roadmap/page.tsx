@@ -11,7 +11,7 @@ import { CourseLinkButton } from "./CourseLinkButton";
 
 interface RoadmapTask {
   id: string;
-  categories: string[];
+  category: string;
   title: string;
   description: string;
   checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
@@ -43,9 +43,9 @@ const formatCategoryDisplay = (category: string): string => {
     .join(" ");
 };
 
-// Check if any of the task's categories is "course"
-const isCourseTask = (categories: string[]): boolean => {
-  return categories.some(c => c.toLowerCase() === "course");
+// Check if the task's category is "course"
+const isCourseTask = (category: string): boolean => {
+  return category.toLowerCase() === "course";
 };
 
 export default function RoadmapPage() {
@@ -296,14 +296,12 @@ export default function RoadmapPage() {
                       )}
                       <CardTitle>{task.title}</CardTitle>
                       <div className="flex gap-1 flex-wrap">
-                        {task.categories.map(cat => (
-                          <span key={cat} className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
-                            {formatCategoryDisplay(cat)}
-                          </span>
-                        ))}
+                        <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
+                          {formatCategoryDisplay(task.category)}
+                        </span>
                       </div>
 
-                      {isCourseTask(task.categories) && (
+                      {isCourseTask(task.category) && (
                         <div className="ml-auto">
                           <CourseLinkButton
                             taskId={task.id}
