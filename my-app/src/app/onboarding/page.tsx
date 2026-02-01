@@ -18,29 +18,28 @@ interface Message {
   isHidden?: boolean;
 }
 
-type OnboardingPhase = 'hardcoded' | 'cv-prompt' | 'cv-upload' | 'personalized' | 'complete';
+type OnboardingPhase = 'hardcoded' | 'cv-prompt' | 'cv-confirm' | 'cv-upload' | 'personalized' | 'complete';
 
 // Hardcoded questions configuration
 const HARDCODED_QUESTIONS = [
   {
     key: 'age',
     question: 'What is your age?',
-    suggestedReplies: ['18-24', '25-34', '35-44', '45+']
   },
   {
     key: 'location',
     question: 'Where are you currently located?',
-    suggestedReplies: ['United States', 'Europe', 'Asia', 'Other']
+    suggestedReplies: ['New York, USA', 'San Francisco, USA', 'London, UK', 'Bangalore, India']
   },
   {
     key: 'targetPosition',
     question: 'What is your target job position?',
-    suggestedReplies: ['Software Engineer', 'Product Manager', 'Data Scientist', 'Other']
+    suggestedReplies: ['Software Engineer', 'Product Manager', 'Data Scientist', 'Investment Banker']
   },
   {
     key: 'targetCompany',
     question: 'Do you have a specific target company in mind?',
-    suggestedReplies: ['Yes (specify)', 'Any top tech company', 'Startups', 'No preference']
+    suggestedReplies: ['Google', 'JP Morgan', 'Tesla', 'Amazon']
   },
   {
     key: 'salaryRange',
@@ -55,7 +54,12 @@ const HARDCODED_QUESTIONS = [
   {
     key: 'targetDate',
     question: 'When do you want to have a fully ready CV?',
-    suggestedReplies: ['1 month', '3 months', '6 months', '1 year']
+    suggestedReplies: ['1 year', '2 years', '3 years', '5 years']
+  },
+  {
+    key: 'geographicMobility',
+    question: 'Are you open to relocating for your target job?',
+    suggestedReplies: ['Yes, anywhere globally', 'Yes, within my country', 'Only nearby cities', 'No, current location only']
   }
 ];
 
@@ -81,9 +85,14 @@ export default function OnboardingPage() {
   const [currentPhase, setCurrentPhase] = useState<OnboardingPhase>('hardcoded');
   const [hardcodedQuestionIndex, setHardcodedQuestionIndex] = useState(0);
   const [hardcodedAnswers, setHardcodedAnswers] = useState<Record<string, string>>({});
-  const [personalizedQuestions, setPersonalizedQuestions] = useState<string[]>([]);
-  const [personalizedAnswers, setPersonalizedAnswers] = useState<string[]>([]);
-  const [currentPersonalizedIndex, setCurrentPersonalizedIndex] = useState(0);
+
+  // Iterative personalized questions state
+  const [cvExtractedText, setCvExtractedText] = useState<string>("");
+  const [personalizedQA, setPersonalizedQA] = useState<Array<{ question: string; answer: string }>>([]);
+  const [currentPersonalizedQuestion, setCurrentPersonalizedQuestion] = useState<string>("");
+
+  // Developer mode - skips personalized questions
+  const [devMode, setDevMode] = useState(false);
 
   // Fetch user data on mount
   useEffect(() => {
@@ -197,26 +206,30 @@ export default function OnboardingPage() {
           setMessages((prev) => [...prev, cvPromptMsg]);
         }
       } else if (currentPhase === 'personalized') {
-        // Handle personalized questions
-        const newAnswers = [...personalizedAnswers];
-        newAnswers[currentPersonalizedIndex] = userMessage;
-        setPersonalizedAnswers(newAnswers);
+        // Handle personalized questions iteratively
+        // Store the current Q&A pair
+        const updatedQA = [...personalizedQA, { question: currentPersonalizedQuestion, answer: userMessage }];
+        setPersonalizedQA(updatedQA);
 
-        const nextIndex = currentPersonalizedIndex + 1;
+        // Call API to get next question (or stop)
+        const questionsResponse = await fetch("/api/onboarding/generate-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hardcodedAnswers,
+            cvText: cvExtractedText,
+            previousQA: updatedQA,
+          }),
+        });
 
-        if (nextIndex < personalizedQuestions.length) {
-          // Show next personalized question
-          setCurrentPersonalizedIndex(nextIndex);
-          const nextQuestion = personalizedQuestions[nextIndex];
+        if (!questionsResponse.ok) {
+          throw new Error("Failed to generate next question");
+        }
 
-          const assistantMsg: Message = {
-            role: "assistant",
-            content: nextQuestion,
-            id: `pq-${nextIndex}`,
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
-        } else {
-          // All questions answered, ready for roadmap
+        const result = await questionsResponse.json();
+
+        if (result.stop || !result.question) {
+          // AI has enough information, transition to complete
           setCurrentPhase('complete');
           setReadyForRoadmap(true);
           const completeMsg: Message = {
@@ -225,6 +238,15 @@ export default function OnboardingPage() {
             id: "complete",
           };
           setMessages((prev) => [...prev, completeMsg]);
+        } else {
+          // Show next personalized question
+          setCurrentPersonalizedQuestion(result.question);
+          const assistantMsg: Message = {
+            role: "assistant",
+            content: result.question,
+            id: `pq-${updatedQA.length}`,
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
         }
       }
     } catch (error) {
@@ -270,87 +292,120 @@ export default function OnboardingPage() {
         return;
       }
 
-      setIsUploadingCV(true);
+      // File is valid, store it and show confirmation
       setCvFile(file);
-      setCurrentPhase('cv-upload');
+      setCurrentPhase('cv-confirm');
+    }
+  };
 
-      try {
-        // Upload CV to server
-        const formData = new FormData();
-        formData.append("file", file);
+  const handleConfirmUpload = async () => {
+    if (!cvFile) return;
 
-        const response = await fetch("/api/cv/upload", {
-          method: "POST",
-          body: formData,
-        });
+    setIsUploadingCV(true);
+    setCurrentPhase('cv-upload');
 
-        if (!response.ok) {
-          throw new Error("Failed to upload CV");
-        }
+    try {
+      // Upload CV to server
+      const formData = new FormData();
+      formData.append("file", cvFile);
 
-        const uploadResult = await response.json();
-        const extractedText = uploadResult.extractedText;
+      const response = await fetch("/api/cv/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-        // Add hidden message with CV content
-        if (extractedText) {
-          console.log("Adding extracted CV text to context");
-          const cvContextMsg: Message = {
-            role: "user",
-            content: `Here is the content of my uploaded CV/Resume:\n\n${extractedText}`,
-            id: "cv-content-hidden",
-            isHidden: true,
-          };
-          setMessages((prev) => [...prev, cvContextMsg]);
-        }
+      if (!response.ok) {
+        throw new Error("Failed to upload CV");
+      }
 
-        // Add confirmation message
-        const uploadMsg: Message = {
-          role: "assistant",
-          content: `Thanks for uploading your CV (${file.name})! Let me generate some personalized questions based on your profile...`,
-          id: "cv-uploaded",
+      const uploadResult = await response.json();
+      const extractedText = uploadResult.extractedText;
+
+      // Store extracted CV text for iterative questions
+      if (extractedText) {
+        console.log("Adding extracted CV text to context");
+        setCvExtractedText(extractedText);
+        const cvContextMsg: Message = {
+          role: "user",
+          content: `Here is the content of my uploaded CV/Resume:\n\n${extractedText}`,
+          id: "cv-content-hidden",
+          isHidden: true,
         };
-        setMessages((prev) => [...prev, uploadMsg]);
+        setMessages((prev) => [...prev, cvContextMsg]);
+      }
 
-        // Generate personalized questions based on hardcoded answers
+      // Add confirmation message
+      const uploadMsg: Message = {
+        role: "assistant",
+        content: `Thanks for uploading your CV (${cvFile.name})! Let me analyze your profile...`,
+        id: "cv-uploaded",
+      };
+      setMessages((prev) => [...prev, uploadMsg]);
+
+      // Developer mode: skip personalized questions entirely
+      if (devMode) {
+        setCurrentPhase('complete');
+        setReadyForRoadmap(true);
+        const completeMsg: Message = {
+          role: "assistant",
+          content: "[Dev Mode] Skipping personalized questions. Ready to generate your roadmap!",
+          id: "complete",
+        };
+        setMessages((prev) => [...prev, completeMsg]);
+      } else {
+        // Call API to get first personalized question (or stop if enough info)
         const questionsResponse = await fetch("/api/onboarding/generate-questions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hardcodedAnswers }),
+          body: JSON.stringify({
+            hardcodedAnswers,
+            cvText: extractedText || "",
+            previousQA: [],
+          }),
         });
 
         if (!questionsResponse.ok) {
-          throw new Error("Failed to generate personalized questions");
+          throw new Error("Failed to generate personalized question");
         }
 
-        const { questions } = await questionsResponse.json();
-        setPersonalizedQuestions(questions);
-        setCurrentPhase('personalized');
-        setCurrentPersonalizedIndex(0);
+        const result = await questionsResponse.json();
 
-        // Show first personalized question
-        if (questions.length > 0) {
+        if (result.stop || !result.question) {
+          // AI has enough information from CV, go directly to roadmap
+          setCurrentPhase('complete');
+          setReadyForRoadmap(true);
+          const completeMsg: Message = {
+            role: "assistant",
+            content: "Great! Based on your CV and profile, I have all the information I need to create your personalized career roadmap. Ready to generate it?",
+            id: "complete",
+          };
+          setMessages((prev) => [...prev, completeMsg]);
+        } else {
+          // Show first personalized question
+          setCurrentPhase('personalized');
+          setCurrentPersonalizedQuestion(result.question);
           const firstPersonalizedMsg: Message = {
             role: "assistant",
-            content: questions[0],
+            content: result.question,
             id: "pq-0",
           };
           setMessages((prev) => [...prev, firstPersonalizedMsg]);
         }
-      } catch (error) {
-        console.error("Error uploading CV:", error);
-        alert("Failed to upload CV or generate questions. Please try again.");
-        setCvFile(null);
-        setCurrentPhase('cv-prompt');
-      } finally {
-        setIsUploadingCV(false);
       }
+    } catch (error) {
+      console.error("Error uploading CV:", error);
+      alert("Failed to upload CV or generate questions. Please try again.");
+      setCvFile(null);
+      setCurrentPhase('cv-prompt');
+    } finally {
+      setIsUploadingCV(false);
     }
   };
 
   const handleGenerateRoadmap = async () => {
     console.log("Generate roadmap button clicked");
     console.log("Current messages:", messages);
-    
+
     if (!messages || messages.length === 0) {
       alert("Please have a conversation first before generating a roadmap.");
       return;
@@ -363,7 +418,7 @@ export default function OnboardingPage() {
     try {
       // Save all onboarding data to JSON file
       setGenerationProgress(50);
-      
+
       const onboardingData = {
         messages: messages
           .filter((msg) => msg.role === "user" || msg.role === "assistant")
@@ -373,8 +428,7 @@ export default function OnboardingPage() {
             content: msg.content,
           })),
         hardcodedAnswers,
-        personalizedAnswers,
-        personalizedQuestions,
+        personalizedQA,
         cvFile: cvFile ? {
           name: cvFile.name,
           size: cvFile.size,
@@ -383,7 +437,7 @@ export default function OnboardingPage() {
       };
 
       console.log("Saving onboarding data:", onboardingData);
-      
+
       await saveOnboardingData(onboardingData);
 
       // Step 2: Complete (100%)
@@ -409,14 +463,25 @@ export default function OnboardingPage() {
   };
 
   // Determine if CV upload should be shown
-  const showCvUpload = currentPhase === 'cv-prompt' || currentPhase === 'cv-upload';
+  const showCvUpload = currentPhase === 'cv-prompt' || currentPhase === 'cv-confirm' || currentPhase === 'cv-upload';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="p-6 border-b border-border">
         <div className="container mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">PathForge</h1>
-          <span className="text-sm text-muted-foreground">Onboarding</span>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={devMode}
+                onChange={(e) => setDevMode(e.target.checked)}
+                className="w-3 h-3"
+              />
+              Dev Mode
+            </label>
+            <span className="text-sm text-muted-foreground">Onboarding</span>
+          </div>
         </div>
       </header>
 
@@ -545,13 +610,27 @@ export default function OnboardingPage() {
                         ) : (
                           <Upload className="h-4 w-4" />
                         )}
-                        {cvFile ? cvFile.name : "Upload CV"}
+                        {currentPhase === 'cv-confirm' ? "Change File" : (cvFile ? cvFile.name : "Upload CV")}
                       </Button>
-                      {cvFile && (
-                        <span className="text-sm text-muted-foreground flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          {cvFile.name}
-                        </span>
+                      {currentPhase === 'cv-confirm' && cvFile && (
+                        <>
+                          <span className="text-sm text-muted-foreground flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            {cvFile.name}
+                          </span>
+                          <Button
+                            type="button"
+                            onClick={handleConfirmUpload}
+                            className="flex items-center gap-2"
+                            disabled={isUploadingCV}
+                          >
+                            {isUploadingCV ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Confirm Upload"
+                            )}
+                          </Button>
+                        </>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -568,11 +647,11 @@ export default function OnboardingPage() {
                     onKeyPress={handleKeyPress}
                     placeholder="Type your message..."
                     className="min-h-[60px] max-h-[120px] resize-none"
-                    disabled={isLoading || isUploadingCV || currentPhase === 'cv-upload' || currentPhase === 'cv-prompt'}
+                    disabled={isLoading || isUploadingCV || currentPhase === 'cv-upload' || currentPhase === 'cv-prompt' || currentPhase === 'cv-confirm'}
                   />
                   <Button
                     type="submit"
-                    disabled={isLoading || !localInput.trim() || isUploadingCV || currentPhase === 'cv-upload' || currentPhase === 'cv-prompt'}
+                    disabled={isLoading || !localInput.trim() || isUploadingCV || currentPhase === 'cv-upload' || currentPhase === 'cv-prompt' || currentPhase === 'cv-confirm'}
                     size="lg"
                     className="shrink-0"
                   >

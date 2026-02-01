@@ -7,13 +7,15 @@ import { linkCourseAccount, updateCourseProgress } from "@/lib/api";
 
 interface CourseLinkButtonProps {
     taskId: string;
-    checklist: Array<{ id: string; text: string; isCompleted: boolean }>;
-    onUpdate: (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean }>) => void;
+    checklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
+    onUpdate: (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>) => void;
+    initiallyLinked?: boolean;
+    onLinked?: (taskId: string) => void;
 }
 
-export function CourseLinkButton({ taskId, checklist, onUpdate }: CourseLinkButtonProps) {
+export function CourseLinkButton({ taskId, checklist, onUpdate, initiallyLinked = false, onLinked }: CourseLinkButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [isLinked, setIsLinked] = useState(false);
+    const [isLinked, setIsLinked] = useState(initiallyLinked);
     const [showNotification, setShowNotification] = useState(false);
 
     const handleLink = async (e: React.MouseEvent) => {
@@ -29,6 +31,7 @@ export function CourseLinkButton({ taskId, checklist, onUpdate }: CourseLinkButt
             setTimeout(() => setShowNotification(false), 3000);
 
             setIsLinked(true);
+            onLinked?.(taskId);
             applyProgress(percentage);
         } catch (e) {
             console.error(e);

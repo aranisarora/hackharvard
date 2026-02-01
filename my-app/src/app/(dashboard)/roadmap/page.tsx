@@ -14,12 +14,13 @@ interface RoadmapTask {
   category: string;
   title: string;
   description: string;
-  checklist?: Array<{ id: string; text: string; isCompleted: boolean }>;
+  checklist?: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
   deadline?: string;
   startDate?: string;
   endDate?: string;
   isCompleted: boolean;
   courseLink?: string;
+  isLinked?: boolean;
   mentor?: {
     name: string;
     title: string;
@@ -29,6 +30,23 @@ interface RoadmapTask {
     description?: string;
   };
 }
+
+// Format category name for display (handles "course" -> "Course")
+const formatCategoryDisplay = (category: string): string => {
+  if (category.toLowerCase() === "course") {
+    return "Course";
+  }
+  // Capitalize first letter of each word for other categories
+  return category
+    .split(/[\s-]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+// Check if the task's category is "course"
+const isCourseTask = (category: string): boolean => {
+  return category.toLowerCase() === "course";
+};
 
 export default function RoadmapPage() {
   const [tasks, setTasks] = useState<RoadmapTask[]>([]);
@@ -87,7 +105,7 @@ export default function RoadmapPage() {
     }
   };
 
-  const handleChecklistUpdate = async (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean }>) => {
+  const handleChecklistUpdate = async (taskId: string, newChecklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>) => {
     try {
       // Calculate new completed state
       const allCompleted = newChecklist.every((item) => item.isCompleted);
@@ -110,6 +128,27 @@ export default function RoadmapPage() {
     } catch (err) {
       console.error(err);
       alert("Failed to save progress update.");
+    }
+  };
+
+  const handleCourseLinked = async (taskId: string) => {
+    try {
+      const newTasks = tasks.map((task) => {
+        if (task.id === taskId) {
+          return {
+            ...task,
+            isLinked: true,
+          };
+        }
+        return task;
+      });
+
+      setTasks(newTasks);
+
+      // Persist the linked state
+      await saveRoadmap(newTasks);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -256,16 +295,20 @@ export default function RoadmapPage() {
                         <Circle className="h-5 w-5 text-muted-foreground" />
                       )}
                       <CardTitle>{task.title}</CardTitle>
-                      <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
-                        {task.category}
-                      </span>
+                      <div className="flex gap-1 flex-wrap">
+                        <span className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground">
+                          {formatCategoryDisplay(task.category)}
+                        </span>
+                      </div>
 
-                      {task.category === "course" && (
+                      {isCourseTask(task.category) && (
                         <div className="ml-auto">
                           <CourseLinkButton
                             taskId={task.id}
                             checklist={task.checklist ?? []}
                             onUpdate={handleChecklistUpdate}
+                            initiallyLinked={task.isLinked ?? false}
+                            onLinked={handleCourseLinked}
                           />
                         </div>
                       )}
@@ -312,9 +355,9 @@ export default function RoadmapPage() {
                         >
                           {item.text}
                         </span>
-                        {task.category === "course" && task.courseLink && (
+                        {item.link && (
                           <a
-                            href={task.courseLink}
+                            href={item.link}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -404,6 +447,7 @@ export default function RoadmapPage() {
                         </Button>
                       </div>
                     )}
+
                   </div>
                 </div>
               </CardContent>

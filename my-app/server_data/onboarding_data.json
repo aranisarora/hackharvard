@@ -10,7 +10,7 @@
     },
     {
       "role": "user",
-      "content": "25-34"
+      "content": "1"
     },
     {
       "role": "assistant",
@@ -18,7 +18,7 @@
     },
     {
       "role": "user",
-      "content": "United States"
+      "content": "India"
     },
     {
       "role": "assistant",
@@ -26,7 +26,7 @@
     },
     {
       "role": "user",
-      "content": "Software Engineer"
+      "content": "Programmer"
     },
     {
       "role": "assistant",
@@ -34,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "Google"
+      "content": "Amazon"
     },
     {
       "role": "assistant",
@@ -42,7 +42,7 @@
     },
     {
       "role": "user",
-      "content": "$80k-$120k"
+      "content": "$120k-$180k"
     },
     {
       "role": "assistant",
@@ -50,7 +50,7 @@
     },
     {
       "role": "user",
-      "content": "5-10 hours"
+      "content": "10-20 hours"
     },
     {
       "role": "assistant",
@@ -58,7 +58,15 @@
     },
     {
       "role": "user",
-      "content": "3 months"
+      "content": "5 years"
+    },
+    {
+      "role": "assistant",
+      "content": "Are you open to relocating for your target job?"
+    },
+    {
+      "role": "user",
+      "content": "Yes, anywhere globally"
     },
     {
       "role": "assistant",
@@ -66,15 +74,15 @@
     },
     {
       "role": "user",
-      "content": "Here is the content of my uploaded CV/Resume:\n\n Mid Term Tests January 2026 \r\nGrade 11 AS Levels\r\nDate            Day         Period         Subject\r\n12th January 2026                          Monday                         P2                Bio/Eco/D&T/GP\r\n13th January 2026                          Tuesday                         P5                    Eng Lang\r\n15th January 2026                         Thursday                         P5                Chem/Acc/Psych\r\n16th January 2026                           Friday                        P5              Math/Further Math\r\n19th January 2026                          Monday                         P4                Phy/BSt/Eng Lit\r\n20th January 2026                          Tuesday                         P2              Comp/Hist/Geo/Art\r\n----------------Page (0) Break----------------\r\n"
+      "content": "Here is the content of my uploaded CV/Resume:\n\n \r\nAkshaj \r\nGoel \r\n \r\n \r\nAkshaj Goel \r\nAdarsh Palm Retreat, Bellandur \r\nBangalore, Karnataka \r\n8861302642 \r\ngoelakshaj@gmail.com \r\nᅳ\r\n \r\nEducation \r\n \r\nIGCSE(9th-10th) \r\nSubject    10th Boards    9th Internals \r\nExt. Math.        A*(100)        \r\nChemistry         A*(97) \r\nBiology           A*(97) \r\nPhysic           A*(96) \r\nComp. Sc.         A*(94) \r\nEconomics         A*(94) \r\nEng. Lang.         A*(92) \r\nSpanish           A*(91) \r\nEng. Lit.            A(85) \r\nAdd. Math                    A*(100) \r\n \r\nSAT:  1550 \r\nAP Computer Science A: 5/5 \r\n \r\n----------------Page (0) Break----------------\r\nᅳ\r\n \r\nProjects \r\n \r\nComparative Analysis of Quantum and Classical Support Vector \r\nMachines for Early-Stage Cancer Detection Using Gene \r\nExpression Data / Primary Author \r\nWriting a research paper(targeting IEEE): \r\n-  Analysing the current state of research on Quantum and \r\nClassical machine learning in regards to cancer detection via \r\nGene Expression Data \r\n-  Conducting Novel comparative research on both \r\n-  Investigating effects of Hybrid Models and Different Quantum \r\nfeature maps \r\n \r\nAI (XAI) Framework for Drug Repurposing in Neurodegenerative \r\nDiseases \r\nWriting a research paper: \r\n-  Analysing the current state of research in terms of models that \r\ncan help identify drugs that can be used to help \r\nneurodegenerative diseases. \r\n-  Building an explainable model which can be used to identify \r\nrepurposable drugs for this purpose \r\n-  Analysing the results \r\nAI in Education Literature Review / Primary Author \r\nJune 2025 - PRESENT \r\nFinished writing a literature review(getting published in IJNTR): \r\n-  Understanding the impact of AI on middle schoolers in urban \r\ncommunities \r\n-  Considering its positive and negative implications \r\n-  Identifying ways to optimise the learning experience to take \r\nadvantage of the rise of AI while mitigating its negative impacts. \r\n \r\nFlex Banner Research /  \r\nAugust 2024-PRESENT \r\nWorking on a research project with a couple friends: \r\n-  The project considers the problem of unrecyclable flex in India, \r\nand to enable recyclability, we have created a solvent \r\n-  This project was presented by one of my team members at the \r\nIIT bombay tech fest 2024-2025 and won: \r\nhttps://sofworld.org/techfest-iit-bombay-winners-2024-25 as \r\nAABIR KAPOOR \r\n-  Working in collaboration with Hasiru Dala company to pilot and \r\nindustrialise the process \r\n-  Making preparations to participate in  IRIS 2025 and Imperial \r\nStemathon 2025. \r\n \r\nData Science for Underprivileged youths \r\nJune 2025 - PRESENT \r\nCurrently working on an initiative: \r\n-  Teaching children at government schools basic data science skills \r\n-  The course content will extend to basic machine learning. \r\n----------------Page (1) Break----------------\r\n-  Ideally, by the end, the children will have all the skills expected in \r\nan entry level data science job. \r\n \r\nSAT AI Website \r\nJuly  2025-PRESENT \r\nHave made and deployed a website: \r\n-  That provides the following AI based SAT english tools \r\n-  20 question practice tests topic wise and for all topics with \r\nadditional customisability \r\n-  A question solver to help elucidate the workings behind certain \r\nquestions. \r\n \r\n \r\nTalisma / Intern \r\nJune 2025 - August 2025 \r\n-  Worked on a multitude of projects during my internships \r\n-  Created an OCR program with three major functions: \r\n-  Summarising a document(Aadhaar, PAN, etc) to extract \r\nthe key details. \r\n-  Comparing a document to some text in a form. \r\nApplicable in registration scenarios to eliminate the \r\nneed of manually checking if the details align. \r\n-  Comparing two documents. Similar applications. \r\n-  Then I expanded onto these three to specialise for \r\nhandwritten documents such as FIRs. This version \r\ncreated a table to neatly present all the information. \r\n-  Created an email analysis and response project which extracts \r\nkey points from an email, and then using a knowledge base \r\ngenerates a recommended output. \r\n-  Expanded on this by using Talisma's custom API instead \r\nof generic LLM APIs \r\n-  Applicable in any business with a customer support or \r\nemail contact service \r\n-  Created an Interactive student LMS that has two main features: \r\nAssignment taking(generated with AI) and content learning(also \r\nAI generated). These were created based on provided topics and \r\nthree links for these topics. \r\n-  Created a "university response" AI product that has the \r\ninformation of a university's FAQ and their student spreadsheet. \r\nCertain questions can be asked to this AI based on these two \r\ndocuments and it parses through all the data and provides an \r\noutput. \r\n-  Applicable for any university responses(including email) \r\nand also for internal university purposes. \r\n-  Lastly, I created an "API factory." While the basic code can be \r\nrepurposed for anything, I was told to expand it for the purposes \r\nof the first project. Essentially, a customer can create their OWN \r\ncustom api that can fulfill any of the three roles described in the \r\nfirst project with any degree of customisation that they wish. \r\n \r\n  \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n----------------Page (2) Break----------------\r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\nᅳ\r\n \r\nCourses \r\n \r\nData Science and Machine learning with Python \r\n-  Learnt a vast breadth of topics in Data science and Machine \r\nlearning, from simple data processing to the essential concepts \r\nbehind neural networks \r\n \r\nOMOTEC Expert Automation V2 \r\n-  Learnt circuit designing using online technologies and real live \r\ncircuits. I learned how to use arduino including C/C++ basics. \r\nᅳ\r\n \r\nAwards/Misc/Honors \r\n \r\nCleared UKMT SMC and the British Math Olympiad 1 and am \r\neligible for the Oxford Camp \r\n \r\nWon HackHarvard India and am eligible to participate in \r\nHackHarvard Boston \r\nIGCSE World Topper Extended and Additional Mathematics. \r\n \r\nClass Topper, English Language Subject Topper, Additional \r\nMathematics Subject Topper \r\n10th grade \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n----------------Page (3) Break----------------\r\n"
     },
     {
       "role": "assistant",
-      "content": "Thanks for uploading your CV (_MTT timetable_Gr 11 Jan 2026.xlsx - Grade 11.pdf)! Let me generate some personalized questions based on your profile..."
+      "content": "Thanks for uploading your CV (Resume (2).pdf)! Let me analyze your profile..."
     },
     {
       "role": "assistant",
-      "content": "Targeting a Software Engineer role at Google within a 3-month timeframe is ambitious, especially with a specific salary range in mind. What core motivations drive you towards Google specifically, and how does this salary range align with your overall career values and expectations?"
+      "content": "Given your 5-year timeline to become a Programmer at Amazon, what are your plans for your undergraduate education, including your target universities and your intended major (e.g., Computer Science, AI/ML, etc.)?"
     },
     {
       "role": "user",
@@ -82,19 +90,11 @@
     },
     {
       "role": "assistant",
-      "content": "Given the competitive nature of Google's hiring and your 5-10 hours per week commitment, what specific technical skills or project experiences do you believe are most critical for you to develop or showcase to stand out, and what's your biggest concern about achieving that level of proficiency in three months?"
+      "content": "Your CV is impressive for a high school student. To tailor your 5-year roadmap to Amazon, could you specify your intended undergraduate major (e.g., Computer Science, AI/ML) and list a few of your top-choice universities?"
     },
     {
       "role": "user",
-      "content": "ok"
-    },
-    {
-      "role": "assistant",
-      "content": "To make the most of your 5-10 hours per week for preparation, what learning approaches or study habits have proven most effective for you in the past, and how do you envision structuring your learning to efficiently tackle topics like data structures, algorithms, and system design for Google?"
-    },
-    {
-      "role": "user",
-      "content": "k"
+      "content": "STOP"
     },
     {
       "role": "assistant",
@@ -102,28 +102,21 @@
     }
   ],
   "hardcodedAnswers": {
-    "age": "25-34",
-    "location": "United States",
-    "targetPosition": "Software Engineer",
-    "targetCompany": "Google",
-    "salaryRange": "$80k-$120k",
-    "timePerWeek": "5-10 hours",
-    "targetDate": "3 months"
+    "age": "1",
+    "location": "India",
+    "targetPosition": "Programmer",
+    "targetCompany": "Amazon",
+    "salaryRange": "$120k-$180k",
+    "timePerWeek": "10-20 hours",
+    "targetDate": "5 years",
+    "geographicMobility": "Yes, anywhere globally"
   },
-  "personalizedAnswers": [
-    "ok",
-    "ok",
-    "k"
-  ],
-  "personalizedQuestions": [
-    "Targeting a Software Engineer role at Google within a 3-month timeframe is ambitious, especially with a specific salary range in mind. What core motivations drive you towards Google specifically, and how does this salary range align with your overall career values and expectations?",
-    "Given the competitive nature of Google's hiring and your 5-10 hours per week commitment, what specific technical skills or project experiences do you believe are most critical for you to develop or showcase to stand out, and what's your biggest concern about achieving that level of proficiency in three months?",
-    "To make the most of your 5-10 hours per week for preparation, what learning approaches or study habits have proven most effective for you in the past, and how do you envision structuring your learning to efficiently tackle topics like data structures, algorithms, and system design for Google?"
-  ],
+  "personalizedAnswers": [],
+  "personalizedQuestions": [],
   "cvFile": {
-    "name": "_MTT timetable_Gr 11 Jan 2026.xlsx - Grade 11.pdf",
-    "size": 26321,
+    "name": "Resume (2).pdf",
+    "size": 131183,
     "type": "application/pdf"
   },
-  "timestamp": "2026-01-08T12:58:58.374Z"
+  "timestamp": "2026-01-12T06:19:19.990Z"
 }

@@ -24,9 +24,9 @@ export interface StructuredOptions<T> {
 }
 
 // Default configuration
-const DEFAULT_MODEL = "gemini-2.5-flash";
-const DEFAULT_TEMPERATURE = 0.7;
-const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+const DEFAULT_MODEL = "gemini-2.5-pro";
+const DEFAULT_TEMPERATURE = 0.3;
+const DEFAULT_MAX_OUTPUT_TOKENS = 65536;
 
 /**
  * Initialize API key from environment
@@ -219,11 +219,12 @@ export async function summarizeOnboardingChat(messages: ChatMessage[]) {
   - keySkills
   - commitmentHours
   - timeline
+  - miscellaneous
   
   Ignore system messages or irrelevant chit-chat. Focus on the user's facts and preferences.
-  If a piece of information is not present, do not invent it.
+  If a piece of information is not present, do not invent it or create a key and leave it empty.
   
-  Return ONLY the JSON object.`;
+  IMPORTANT: Return ONLY the JSON object.`;
 
   console.log("[Gemini Service] Summarizing chat...");
 

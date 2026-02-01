@@ -1,10 +1,28 @@
 import { generateStructuredResponse } from "@/services/gemini-service";
-import { RoadmapGenerationSchema } from "@/features/roadmap/schemas";
 import { NextResponse } from "next/server";
-import type { ZodTypeAny } from "zod";
+import { z } from "zod";
 
-// Use Edge Runtime for lower latency
-export const runtime = "edge";
+// Use Node.js runtime for longer timeouts (Edge has strict limits)
+export const runtime = "nodejs";
+// Extend timeout for AI generation (600s = 10 minutes)
+export const maxDuration = 600;
+
+// Helper to wrap AI calls with timeout
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${name} timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId!);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId!);
+    throw error;
+  }
+}
 
 type ConversationMessage = {
   role: string;
@@ -47,346 +65,591 @@ function extractUploadedResumeText(messages?: ConversationMessage[]): string | n
   return resumeSegments.join("\n\n");
 }
 
-// System prompt for roadmap generation
-const ROADMAP_GENERATION_SYSTEM_PROMPT = `You are an expert career advisor. Analyze the conversation and generate a detailed roadmap and target CV.
+// ============================================================================
+// SCHEMAS FOR EACH MICRO-SEGMENT (smaller = faster, less chance of length limit)
+// ============================================================================
 
-IMPORTANT: You MUST provide substantive content. Do not return empty strings or empty arrays.
+// Segment 1: Target CV only
+const TargetCVSchema = z.object({
+  targetCV: z.string().describe("The complete upgraded target CV text"),
+});
 
-Generate a comprehensive roadmap with realistic tasks and timelines. Today is 2026-01-06.
+// Segment 2 & 3: Individual roadmap tasks (split into batches)
+const SingleTaskSchema = z.object({
+  id: z.string(),
+  category: z.string().describe("Single broad category for this task - must be one of: Education, Certifications, Course, Skills, Experience, Portfolio, Networking, Interview Prep"),
+  title: z.string(),
+  description: z.string(),
+  checklist: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    isCompleted: z.boolean().default(false),
+    link: z.string().optional().describe("URL link for this checklist item (required for Course category tasks)"),
+  })),
+  deadline: z.string().optional(),
+  startDate: z.string(),
+  endDate: z.string(),
+  isCompleted: z.boolean().default(false),
+  courseLink: z.string().optional().describe("Main course URL (required for Course category tasks)"),
+  isLinked: z.boolean().default(false).describe("Whether external account is linked (for Course tasks)"),
+});
 
-**For initialCV and targetCV:**
-- initialCV: We'll supply the verbatim resume text we extracted from the conversation and should not be rewritten.
-- targetCV: Output the COMPLETE, FINAL CV document the user should have. This must be the actual CV text (not feedback or descriptions). Start from the user's existing CV and ADD the missing skills, experiences, certifications, and accomplishments inline where they belong. Output ONLY the CV content itself—no explanations, no commentary, no bullet points describing what to add.
+const TaskBatchSchema = z.object({
+  tasks: z.array(SingleTaskSchema),
+});
 
-**For Roadmap Tasks:**
-- Generate at least 3-5 actionable tasks to bridge the gap between current and target state
-- Each task should be concrete and measurable
-- If no specific tasks are mentioned, infer reasonable career development tasks
+// Segment 4: Dashboard user info + progress
+const DashboardUserInfoSchema = z.object({
+  user: z.object({
+    email: z.string().default(""),
+    targetJob: z.string(),
+    targetCompany: z.string(),
+  }),
+  overallProgress: z.number().min(0).max(100),
+});
 
-**For dates (if generating tasks):**
-- startDate: Today or up to 2 weeks from now (2026-01-06 format)
-- endDate: Reflects realistic task duration (simple: 1-2 weeks, medium: 1-3 months, complex: 2-6 months)
-- deadline: Must match endDate
-- All dates must be in YYYY-MM-DD format and valid dates
+// Segment 5: Dashboard categories
+const DashboardCategoriesSchema = z.object({
+  categories: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    icon: z.string(),
+    color: z.string(),
+    bgColor: z.string(),
+    tasks: z.array(z.object({
+      title: z.string(),
+      completed: z.boolean().default(false),
+    })),
+    progress: z.number().min(0).max(100).default(0),
+  })),
+});
 
-**For Dashboard:**
-- Extract targetJob, targetCompany, and email from the conversation
-- If email is not provided, leave it as empty or use a placeholder
-- overallProgress: CRITICAL - You MUST calculate a percentage (0-100) by comparing the initialCV to the targetCV. Analyze:
-  * What percentage of required skills does the user currently have?
-  * What percentage of required experience/qualifications does the user have?
-  * What percentage of certifications/education requirements are met?
-  * Consider the gap between current state (initialCV) and target state (targetCV)
-  * Return a realistic percentage (typically 20-60% for someone starting their journey, higher if they're closer to the target)
-  * DO NOT default to 0 - always calculate based on the actual comparison
-- categories: If no categories are mentioned, create 3-4 logical categories (e.g., Skills, Experience, Certifications, Projects)
+// ============================================================================
+// FOCUSED PROMPTS FOR EACH MICRO-SEGMENT
+// ============================================================================
 
-**For mentor information (optional):**
-- If you cannot generate valid data, use null/omit the field
-- If included: use realistic email addresses or leave blank
-- profileImage: use valid HTTPS URLs or omit
+const BASE_CONTEXT = `You are an elite career strategist. Today's date is {{TODAY}}.
+CRITICAL: Return ONLY the requested JSON fields. Be concise but substantive.`;
 
-**Critical:** Provide real, meaningful data from the conversation. Never return empty strings for key fields like 'initialCV', 'targetCV', or 'targetJob'.
-**Important:** We'll replace the 'initialCV' field with the raw resume text extracted earlier. The 'targetCV' must be the COMPLETE final CV document (not descriptions or feedback)—output it as actual resume text ready to be displayed.`;
+const TARGET_CV_PROMPT = `${BASE_CONTEXT}
 
-const TARGET_CV_SECTION_PROMPT = `**TARGET CV ONLY**
-Output the COMPLETE forecasted CV as plain text. This is NOT feedback—it is the actual final CV document the user should have after making all improvements.
+**TASK**: Generate the user's target CV based on their current resume and career goals.
 
-RULES:
-- Start from the user's uploaded CV and integrate the recommended additions directly into the text.
-- Add new skills, certifications, experiences, and accomplishments where they naturally belong.
-- Do NOT include any explanatory text, commentary, headers like "Recommended:", or meta-descriptions.
-- The output must read exactly like a real CV/resume document.
+**RULES**:
+1. Start with their existing resume and integrate new skills, projects, and certifications
+2. Output only the CV text - no commentary or labels
+3. Make it read like a professional document
 
-Return a JSON object containing only "targetCV" with the full CV text.`;
+Return JSON with field: "targetCV" (string)`;
 
-const ROADMAP_TASKS_SECTION_PROMPT = `**ROADMAP TASKS ONLY**
-Use the guidance from the main system prompt under "For Roadmap Tasks" and "For dates" to create concrete, measurable tasks that bridge the gap between this user's current resume and the target CV.
-Return a JSON object containing only "roadmap" with a "tasks" array that includes the required deadlines and checklist details.`;
+const TASKS_BATCH_1_PROMPT = `${BASE_CONTEXT}
 
-const DASHBOARD_SECTION_PROMPT = `**DASHBOARD ONLY**
-Extract the targetJob, targetCompany, email, realistic overallProgress percentage, and logical categories as described in the system prompt under "For Dashboard".
-Return a JSON object containing only "dashboard" with the expected schema fields. No roadmap or target CV details should be produced in this pass.`;
+**TASK**: Generate COMPREHENSIVE, SPECIFIC, GRANULAR career tasks focused on MANDATORY PREREQUISITES and FOUNDATIONAL REQUIREMENTS. Generate as many tasks as needed to fully cover this stage (typically 5-10 tasks).
 
-const TargetCVSegmentSchema = RoadmapGenerationSchema.pick({ targetCV: true });
-const RoadmapSegmentSchema = RoadmapGenerationSchema.pick({ roadmap: true });
-const DashboardSegmentSchema = RoadmapGenerationSchema.pick({ dashboard: true });
+**⚠️ CRITICAL - PREREQUISITE PATHWAY ANALYSIS (READ FIRST)**:
+Before generating tasks, you MUST analyze the gap between the user's CURRENT education/experience and their TARGET career:
+
+1. **MANDATORY EDUCATION REQUIREMENTS**: Does the target career require specific degrees?
+   - Law: Bachelor's degree → Law School (JD) → Bar Exam
+   - Medicine: Bachelor's degree → Medical School (MD/DO) → Residency → Medical License
+   - Engineering: Often requires BS/MS in specific engineering field
+   - Academia: Bachelor's → Master's → PhD
+   - Finance/Consulting: Often requires MBA for senior roles
+   - Psychology: Bachelor's → Master's/PhD → Licensing
+
+2. **STANDARDIZED TESTS**: What exams are REQUIRED for admission or licensure?
+   - Law: LSAT (for law school admission)
+   - Medicine: MCAT (for medical school admission)
+   - Graduate School: GRE/GMAT
+   - Nursing: NCLEX
+   - Accounting: CPA Exam
+   - Architecture: ARE (Architect Registration Examination)
+
+3. **PROFESSIONAL LICENSING**: What certifications are LEGALLY REQUIRED to practice?
+   - Law: Bar Exam in relevant state
+   - Medicine: USMLE, state medical license
+   - Nursing: State nursing license
+   - CPA: State CPA license
+   - Engineering: PE (Professional Engineer) license
+
+**IF THE USER'S CURRENT RESUME SHOWS HIGH SCHOOL OR EARLY COLLEGE, AND THEIR TARGET REQUIRES ADVANCED DEGREES:**
+→ The FIRST tasks MUST be about obtaining required degrees and passing required standardized tests
+→ Do NOT skip to skill-building tasks if foundational education is missing
+
+**CRITICAL RULES**:
+1. **Task title MUST be a SPECIFIC ACTIONABLE ITEM** - NOT a category or vague goal
+   - ❌ BAD: "Improve coding skills", "Obtain certifications", "Build experience"
+   - ✅ GOOD: "Complete Bachelor's Degree in Pre-Law/Political Science", "Prepare for and Pass the LSAT (Target: 170+)", "Apply to Top 20 Law Schools"
+
+2. **category = SINGLE BROAD CATEGORY** - Each task has EXACTLY ONE category from this list:
+   - **Education** - Formal degrees, academic programs, university enrollment
+   - **Certifications** - Professional certifications and licensing exams (AWS, PMP, Bar Exam, etc.)
+   - **Course** - Online courses, MOOCs, structured learning (Coursera, Udemy, LinkedIn Learning)
+   - **Skills** - Hands-on practice, coding challenges, skill development exercises
+   - **Experience** - Work experience, internships, jobs, practical application
+   - **Portfolio** - Projects, demonstrations, building portfolio pieces
+   - **Networking** - Professional connections, community, mentorship
+   - **Interview Prep** - Interview preparation, mock interviews, resume optimization
+   
+   **⚠️ CATEGORY RULES:**
+   - Each task has EXACTLY ONE category - no multiple categories
+   - Categories are MUTUALLY EXCLUSIVE - if a task involves an online course, use "Course" NOT "Skills"
+   - Use "Certifications" for the exam itself, use "Course" for certification prep courses
+   - Use "Education" for formal degrees, use "Course" for online learning
+   - ❌ BAD: Using specific categories like "Cloud Computing", "Machine Learning", "Product Management"
+   - ✅ GOOD: Using broad categories like "Course", "Certifications", "Skills"
+
+3. **Checklist = MILESTONES + RESOURCES** (3-5 items)
+   - Include progress milestones: "Complete first 50 problems", "Finish Module 3"
+   - Include reading/study resources: "Read: Cracking the Coding Interview Ch.1-5"
+   - For education: "Complete prerequisite courses", "Maintain 3.5+ GPA", "Research program requirements"
+   - **FOR COURSE CATEGORY ONLY**: Each checklist item MUST have a "link" field with a URL to the specific module/lesson
+   - ❌ BAD: Listing separate tasks as checklist items
+
+4. **Description** = Brief explanation of WHY this task matters for their career goal
+
+5. **COURSE CATEGORY REQUIREMENTS** (when category is "Course"):
+   - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
+   - MUST include "isLinked" field set to false
+   - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
+   
+   **⚠️ CRITICAL: USE REAL COURSE URLs FROM THESE PLATFORMS:**
+   - Coursera: https://www.coursera.org/learn/[course-name]
+   - Udemy: https://www.udemy.com/course/[course-name]
+   - LinkedIn Learning: https://www.linkedin.com/learning/[course-name]
+   - edX: https://www.edx.org/learn/[topic]/[course]
+   - Pluralsight: https://www.pluralsight.com/courses/[course-name]
+   - freeCodeCamp: https://www.freecodecamp.org/learn/[certification]
+   - Khan Academy: https://www.khanacademy.org/[subject]
+   
+   **EXAMPLES OF REAL COURSES:**
+   - Machine Learning: "https://www.coursera.org/learn/machine-learning-course"
+   - Python: "https://www.udemy.com/course/100-days-of-code"
+   - AWS: "https://www.coursera.org/professional-certificates/aws-cloud-solutions-architect"
+   - React: "https://www.udemy.com/course/react-the-complete-guide-incl-redux"
+   - Data Science: "https://www.coursera.org/professional-certificates/ibm-data-science"
+   - SQL: "https://www.linkedin.com/learning/sql-essential-training"
+   
+   **Checklist items should link to REAL module/section URLs:**
+   - Example: { id: "1", text: "Complete Week 1: Introduction", isCompleted: false, link: "https://www.coursera.org/learn/machine-learning-course/home/week/1" }
+
+6. **Dates**: YYYY-MM-DD format, starting from {{TODAY}}
+
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, category (single string), title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
+
+const TASKS_BATCH_2_PROMPT = `${BASE_CONTEXT}
+
+**TASK**: Generate COMPREHENSIVE, ADDITIONAL SPECIFIC career tasks focusing on LATER-STAGE MILESTONES and CAREER ADVANCEMENT. Generate as many tasks as needed to fully cover this stage (typically 5-10 tasks).
+
+**⚠️ CRITICAL - BUILD ON PREREQUISITE PATHWAY**:
+These tasks should FOLLOW the foundational requirements. Consider what comes AFTER basic education/prerequisites:
+
+1. **PROFESSIONAL SCHOOL/GRADUATE APPLICATIONS**: If user needs advanced degrees
+   - Example: "Apply to Law Schools with Personal Statement and Letters of Recommendation"
+   - Example: "Complete Medical School Applications (AMCAS)"
+
+2. **LICENSING AND CERTIFICATION EXAMS**: The final gates to practice
+   - Law: Bar Exam preparation and passing
+   - Medicine: USMLE Step 1, 2, 3 and residency match
+   - Accounting: CPA Exam sections
+   - Other: Industry-specific certifications
+
+3. **PRACTICAL EXPERIENCE REQUIREMENTS**: Many careers require supervised practice
+   - Law: Clerkships, internships at law firms
+   - Medicine: Clinical rotations, residency
+   - Teaching: Student teaching requirements
+   - Psychology: Supervised clinical hours
+
+4. **NETWORKING AND PROFESSIONAL DEVELOPMENT**: Building career capital
+   - Professional association memberships
+   - Industry conferences and events
+   - Mentorship connections
+
+**CRITICAL RULES**:
+1. **Task title MUST be a SPECIFIC ACTIONABLE ITEM**
+   - ❌ BAD: "Network with professionals", "Gain industry exposure"
+   - ✅ GOOD: "Pass the Bar Exam in [State]", "Complete 500 Supervised Clinical Hours", "Secure Summer Associate Position at Law Firm"
+
+2. **category = SINGLE BROAD CATEGORY** - Each task has EXACTLY ONE category from this list:
+   - **Education** - Formal degrees, academic programs
+   - **Certifications** - Professional certifications and licensing exams
+   - **Course** - Online courses, MOOCs, structured learning platforms
+   - **Skills** - Hands-on practice, coding challenges, skill exercises
+   - **Experience** - Work experience, internships, practical application
+   - **Portfolio** - Projects, demonstrations, portfolio building
+   - **Networking** - Professional connections, community involvement
+   - **Interview Prep** - Interview preparation, mock interviews
+   
+   **⚠️ MUST USE THE SAME CATEGORIES AS BATCH 1** - no new categories
+   - Each task has EXACTLY ONE category - no multiple categories
+   - ❌ BAD: Creating topic-specific categories like "Cloud Computing", "Data Science"
+   - ✅ GOOD: Using broad categories like "Course", "Certifications", "Experience"
+
+3. **Checklist = MILESTONES + RESOURCES** (3-5 items)
+   - Progress markers: "Register for exam", "Complete practice tests", "Submit application"
+   - Resources: "Study: Barbri/Kaplan prep materials", "Read: industry-specific guides"
+   - **FOR COURSE CATEGORY ONLY**: Each checklist item MUST have a "link" field with a URL to the specific module/lesson
+
+4. **Focus areas**: Professional licensing, graduate program completion, practical experience, networking
+
+5. **COURSE CATEGORY REQUIREMENTS** (when category is "Course"):
+   - MUST include "courseLink" field with a REAL, ACTUAL course URL from a known platform
+   - MUST include "isLinked" field set to false
+   - Each checklist item MUST have a "link" field pointing to a REAL course module/lesson URL
+   
+   **⚠️ USE REAL COURSE URLs FROM THESE PLATFORMS:**
+   - Coursera, Udemy, LinkedIn Learning, edX, Pluralsight, freeCodeCamp, Khan Academy
+   
+   **EXAMPLES:**
+   - Leadership: "https://www.coursera.org/specializations/strategic-leadership"
+   - Project Management: "https://www.coursera.org/professional-certificates/google-project-management"
+   - Business Analytics: "https://www.linkedin.com/learning/paths/become-a-business-analyst"
+   - Finance: "https://www.coursera.org/specializations/finance"
+
+6. **Dates**: YYYY-MM-DD format, after {{TODAY}} and AFTER the prerequisite tasks from Batch 1
+
+**OUTPUT**: JSON with field "tasks" (array of task objects with id, category (single string), title, description, checklist, startDate, endDate, and for Course tasks: courseLink, isLinked)`;
 
 
+const DASHBOARD_USER_PROMPT = `${BASE_CONTEXT}
+
+**TASK**: Extract user profile info and calculate their current progress toward target role.
+
+**RULES**:
+1. Extract targetJob and targetCompany from context
+2. Calculate overallProgress (0-100) based on skill gap analysis
+3. Be realistic - don't default to 0% or 100%
+
+Return JSON with fields: "user" (object with email, targetJob, targetCompany), "overallProgress" (number)`;
+
+const DASHBOARD_CATEGORIES_PROMPT = `${BASE_CONTEXT}
+
+**TASK**: Organize career development into logical categories (up to 12 categories).
+
+**RULES**:
+1. Create contextually relevant categories based on the user's career goals
+2. Examples: "Technical Skills", "Certifications", "Experience", "Networking", "Portfolio", "Research", "Interview Prep", etc.
+3. Each category needs: id, title, icon (emoji), color, bgColor, tasks array, progress
+4. Keep task titles short (max 50 chars)
+
+Return JSON with field: "categories" (array of category objects)`;
+
+// ============================================================================
+// MAIN ROUTE HANDLER
+// ============================================================================
 
 export async function POST(request: Request) {
   try {
     console.log("[Roadmap Generate] Starting roadmap generation...");
-    
-    // Validate API key early
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("[Roadmap Generate] API key not found in environment variables");
-      return NextResponse.json(
-        {
-          error: "Failed to generate roadmap",
-          details: "API key not configured. Please set GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY environment variable.",
-        },
-        { status: 500 }
-      );
-    }
-    
-    const { messages, onboardingData, resumes } = await request.json();
-    console.log("[Roadmap Generate] Received messages:", messages?.length || 0);
-    console.log("[Roadmap Generate] Received onboarding data:", !!onboardingData);
-    console.log("[Roadmap Generate] Received resumes:", resumes?.length || 0);
-    
-    // Debug resume data
-    if (resumes && resumes.length > 0) {
-      console.log("[Roadmap Generate] === RESUME DATA DEBUG ===");
-      resumes.forEach((resume: any, idx: number) => {
-        console.log(`Resume ${idx + 1}:`, {
-          id: resume.id,
-          name: resume.name,
-          headline: resume.headline,
-          experienceCount: resume.experience?.length || 0,
-          educationCount: resume.education?.length || 0,
-          skillsCount: Array.isArray(resume.skills) ? resume.skills.length : 0,
-        });
-      });
-      console.log("[Roadmap Generate] === END RESUME DEBUG ===");
-    }
+    const { messages, onboardingData, resumes, targetCV: preGeneratedTargetCV } = await request.json();
+    console.log("[Roadmap Generate] Messages:", messages?.length || 0);
+    console.log("[Roadmap Generate] Resumes:", resumes?.length || 0);
+    console.log("[Roadmap Generate] Pre-generated Target CV provided:", !!preGeneratedTargetCV);
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      console.error("[Roadmap Generate] Invalid messages:", messages);
-      return NextResponse.json(
-        { error: "Messages are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Messages are required" }, { status: 400 });
     }
 
     const extractedResumeText = extractUploadedResumeText(messages);
-    console.log(
-      "[Roadmap Generate] Extracted resume text length:",
-      extractedResumeText?.length ?? 0
-    );
+    const today = new Date().toISOString().split('T')[0];
+    const actualJobTitle = onboardingData?.hardcodedAnswers?.targetPosition || "Target Role";
 
-    // Build enhanced system prompt with resume context
-    let enhancedPrompt = ROADMAP_GENERATION_SYSTEM_PROMPT;
-    
+    // Build shared context that will be prepended to all prompts
+    let sharedContext = "";
+
+    // Add peer resume data (condensed)
     if (resumes && resumes.length > 0) {
-      console.log("[Roadmap Generate] Building resume context for LLM prompt...");
-      enhancedPrompt += `\n\n**RELEVANT RESUMES FROM SIMILAR PROFESSIONALS:**
-You have access to ${resumes.length} resume(s) from professionals who have worked in similar roles. Use these as reference points for what successful candidates in this role typically have:
-
-${resumes.slice(0, 5).map((resume: any, idx: number) => {
-        const experiences = resume.experience?.map((exp: any) => 
-          `${exp.title} at ${exp.company_name}${exp.description ? ` (${exp.description.substring(0, 100)}...)` : ""}`
-        ).join("; ") || "N/A";
-        
-        const educations = resume.education?.map((edu: any) => 
-          `${edu.degree || ""}${edu.field_of_study ? ` in ${edu.field_of_study}` : ""} from ${edu.school_name}`
-        ).join("; ") || "N/A";
-        
-        const skills = Array.isArray(resume.skills) 
-          ? resume.skills.map((s: any) => typeof s === "string" ? s : s.name).join(", ")
+      sharedContext += `\n### PEER PROFILES (${resumes.length} professionals in ${actualJobTitle}):\n`;
+      resumes.slice(0, 3).forEach((resume: any, idx: number) => {
+        const skills = Array.isArray(resume.skills)
+          ? resume.skills.slice(0, 10).map((s: any) => typeof s === "string" ? s : s.name).join(", ")
           : "N/A";
-        
-        return `
-Resume ${idx + 1}:
-- Name: ${resume.name || "Unknown"}
-- Headline: ${resume.headline || "N/A"}
-- Location: ${resume.location || "N/A"}
-- Experience: ${experiences}
-- Education: ${educations}
-- Skills: ${skills}
-- Languages: ${resume.languages?.join(", ") || "N/A"}
-- Certifications: ${resume.certifications?.map((c: any) => c.name).join(", ") || "N/A"}
-`;
-      }).join("\n")}
-
-Use these resumes to inform what skills, experiences, and qualifications are typically needed for this role. Analyze the patterns across these resumes to identify common requirements.`;
-      console.log("[Roadmap Generate] Resume context added to prompt");
+        sharedContext += `${idx + 1}. ${resume.headline || "Professional"} | Skills: ${skills}\n`;
+      });
     }
 
+    // Add user onboarding data
     if (onboardingData?.hardcodedAnswers) {
-      const answers = onboardingData.hardcodedAnswers;
-      enhancedPrompt += `\n\n**USER ONBOARDING DATA:**
-- Target Position: ${answers.targetPosition || "Not specified"}
-- Target Company: ${answers.targetCompany || "Not specified"}
-- Time Available: ${answers.timePerWeek || "Not specified"}
-- Target Date: ${answers.targetDate || "Not specified"}
-- Salary Range: ${answers.salaryRange || "Not specified"}
-- Location: ${answers.location || "Not specified"}
-- Age: ${answers.age || "Not specified"}
-`;
+      const a = onboardingData.hardcodedAnswers;
+      sharedContext += `\n### USER GOALS:\n`;
+      sharedContext += `Target: ${a.targetPosition || "N/A"} at ${a.targetCompany || "Any Company"}\n`;
+      sharedContext += `Timeline: ${a.targetDate || "ASAP"} | Hours/week: ${a.timePerWeek || "Flexible"}\n`;
     }
 
-    const buildSegmentPrompt = (segmentTitle: string, instructions: string) =>
-      `${enhancedPrompt}\n\n${segmentTitle}\n${instructions}`;
-
-    async function runSegment(
-      segmentLabel: string,
-      schema: ZodTypeAny,
-      instructions: string
-    ) {
-      console.log(`[Roadmap Generate] ${segmentLabel} segment starting...`);
-      const prompt = buildSegmentPrompt(segmentLabel, instructions);
-      try {
-        // Use reasonable token limits to prevent timeouts
-        // 32768 is the max for most models, but we use 16384 to be safe
-        const segmentResult = await generateStructuredResponse(messages, {
-          systemPrompt: prompt,
-          schema,
-          maxOutputTokens: 16384, // Reduced from 65536 to prevent timeouts
-        });
-        console.log(`[Roadmap Generate] ${segmentLabel} segment completed`);
-        return segmentResult;
-      } catch (error) {
-        console.error(`[Roadmap Generate] Error in ${segmentLabel} segment:`, error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`[Roadmap Generate] ${segmentLabel} error details:`, {
-          message: errorMessage,
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        throw new Error(`Failed to generate ${segmentLabel}: ${errorMessage}`);
-      }
+    // Add user's current resume
+    if (extractedResumeText) {
+      sharedContext += `\n### USER'S CURRENT RESUME:\n${extractedResumeText.substring(0, 2000)}...\n`;
     }
 
-    // Run segments with error handling - each segment can fail independently
-    let targetCVResult, roadmapResult, dashboardResult;
-    
-    try {
-      targetCVResult = await runSegment(
-        "Target CV",
-        TargetCVSegmentSchema,
-        TARGET_CV_SECTION_PROMPT
-      );
-    } catch (error) {
-      console.error("[Roadmap Generate] Target CV generation failed:", error);
-      // Provide fallback - use extracted resume text as target CV if available
-      const fallbackCV = extractedResumeText || "";
-      targetCVResult = { object: { targetCV: fallbackCV } };
-    }
-
-    try {
-      roadmapResult = await runSegment(
-        "Roadmap tasks",
-        RoadmapSegmentSchema,
-        ROADMAP_TASKS_SECTION_PROMPT
-      );
-    } catch (error) {
-      console.error("[Roadmap Generate] Roadmap generation failed:", error);
-      // Provide fallback with basic tasks
-      roadmapResult = { 
-        object: { 
-          roadmap: { 
-            tasks: [
-              {
-                id: "1",
-                category: "skills",
-                title: "Develop core skills for your target role",
-                description: "Focus on building the essential skills needed for your target position.",
-                checklist: [
-                  { id: "1", text: "Identify key skills required", isCompleted: false },
-                  { id: "2", text: "Create a learning plan", isCompleted: false },
-                  { id: "3", text: "Start skill development", isCompleted: false },
-                ],
-                deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                isCompleted: false,
-              }
-            ] 
-          } 
-        } 
-      };
-    }
-
-    try {
-      dashboardResult = await runSegment(
-        "Dashboard",
-        DashboardSegmentSchema,
-        DASHBOARD_SECTION_PROMPT
-      );
-    } catch (error) {
-      console.error("[Roadmap Generate] Dashboard generation failed:", error);
-      // Provide fallback with basic data from onboarding
-      const fallbackDashboard = {
-        user: {
-          email: "",
-          targetJob: onboardingData?.hardcodedAnswers?.targetPosition || "Software Engineer",
-          targetCompany: onboardingData?.hardcodedAnswers?.targetCompany || "Google",
-        },
-        overallProgress: 30, // Default progress
-        categories: [
-          {
-            id: "skills",
-            title: "Skills",
-            icon: "Briefcase",
-            color: "text-primary",
-            bgColor: "bg-primary/10",
-            tasks: [],
-            progress: 0,
-          }
-        ],
-      };
-      dashboardResult = { object: { dashboard: fallbackDashboard } };
-    }
-
-    const targetCV = targetCVResult.object?.targetCV || "";
-    const roadmap = roadmapResult.object?.roadmap || { tasks: [] };
-    const dashboard =
-      dashboardResult.object?.dashboard || {
-        user: { email: "", targetJob: "", targetCompany: "" },
-        overallProgress: 0,
-        categories: [],
-      };
-
-    const finalData = {
-      initialCV: extractedResumeText || "",
-      targetCV,
-      roadmap,
-      dashboard,
+    // Helper to create segment prompts with full context
+    const buildPrompt = (segmentPrompt: string) => {
+      return `${segmentPrompt.replace(/{{TODAY}}/g, today)}\n\n---\n${sharedContext}`;
     };
 
-    console.log(
-      "[Roadmap Generate] Final data assembled",
-      {
-        targetCVLength: targetCV.length,
-        taskCount: roadmap.tasks?.length ?? 0,
-        categoryCount: dashboard.categories?.length ?? 0,
-      }
-    );
+    const startTime = Date.now();
+    let generatedTargetCV: string;
 
-    // Return the validated data
+    // PHASE 1: Generate Target CV first (so roadmap can use it as context)
+    // Skip if targetCV is already provided (pre-generated via separate API)
+    if (preGeneratedTargetCV) {
+      console.log("[Roadmap Generate] Using pre-generated Target CV (skipping Phase 1)");
+      generatedTargetCV = preGeneratedTargetCV;
+    } else {
+      console.log("[Roadmap Generate] Phase 1: Generating Target CV...");
+
+      const targetCVResult = await withTimeout(
+        generateStructuredResponse(messages, {
+          systemPrompt: buildPrompt(TARGET_CV_PROMPT),
+          schema: TargetCVSchema,
+          maxOutputTokens: 16384,
+        }),
+        600000,
+        "Target CV generation"
+      ).catch(err => {
+        console.error("[Phase 1 - Target CV] Error:", err);
+        return { object: { targetCV: "" } };
+      });
+
+      const cvDuration = Date.now() - startTime;
+      console.log(`[Roadmap Generate] Phase 1 completed in ${cvDuration}ms`);
+      generatedTargetCV = targetCVResult.object.targetCV || "";
+    }
+
+    const initialCV = extractedResumeText || "";
+
+    const buildPromptWithCV = (segmentPrompt: string) => {
+      let prompt = buildPrompt(segmentPrompt);
+
+      // Add CV gap analysis context
+      prompt += `\n\n---\n## ⚠️ CRITICAL: ROADMAP MUST BRIDGE THE GAP BETWEEN INITIAL CV AND TARGET CV\n\n`;
+
+      if (initialCV) {
+        prompt += `### USER'S CURRENT/INITIAL CV:\n${initialCV.substring(0, 2000)}...\n\n`;
+      }
+
+      if (generatedTargetCV) {
+        prompt += `### GENERATED TARGET CV (what the user needs to achieve):\n${generatedTargetCV.substring(0, 2500)}...\n\n`;
+      }
+
+      prompt += `### GAP ANALYSIS INSTRUCTIONS:
+1. **IDENTIFY THE DIFFERENCES**: Compare the INITIAL CV to the TARGET CV carefully
+2. **EACH ROADMAP TASK MUST address a specific gap** - a skill, certification, project, or experience that exists in the TARGET CV but NOT in the INITIAL CV
+3. **DO NOT create tasks for things the user already has** - check the INITIAL CV first
+4. **PRIORITIZE**: Start with foundational gaps (education, prerequisites) before advanced gaps (specialized skills, projects)
+5. **BE SPECIFIC**: If the target CV mentions "AWS Solutions Architect certification", create a task specifically for that certification, not a generic "learn cloud computing" task
+
+The roadmap should be a step-by-step path that transforms the INITIAL CV into the TARGET CV.\n`;
+
+      return prompt;
+    };
+
+    // PHASE 2: Generate roadmap tasks and dashboard info in parallel (using target CV as context)
+    console.log("[Roadmap Generate] Phase 2: Generating roadmap tasks with Target CV context...");
+    const phase2Start = Date.now();
+
+    const [
+      tasksBatch1Result,
+      tasksBatch2Result,
+      dashboardUserResult,
+    ] = await Promise.all([
+      // Segment 2: Tasks Batch 1 (600s timeout) - now uses target CV context
+      withTimeout(
+        generateStructuredResponse(messages, {
+          systemPrompt: buildPromptWithCV(TASKS_BATCH_1_PROMPT),
+          schema: TaskBatchSchema,
+          maxOutputTokens: 8192,
+        }),
+        600000,
+        "Tasks Batch 1 generation"
+      ).catch(err => {
+        console.error("[Segment 2 - Tasks Batch 1] Error:", err);
+        return { object: { tasks: [] } };
+      }),
+
+      // Segment 3: Tasks Batch 2 (600s timeout) - now uses target CV context
+      withTimeout(
+        generateStructuredResponse(messages, {
+          systemPrompt: buildPromptWithCV(TASKS_BATCH_2_PROMPT),
+          schema: TaskBatchSchema,
+          maxOutputTokens: 8192,
+        }),
+        600000,
+        "Tasks Batch 2 generation"
+      ).catch(err => {
+        console.error("[Segment 3 - Tasks Batch 2] Error:", err);
+        return { object: { tasks: [] } };
+      }),
+
+      // Segment 4: Dashboard User Info (600s timeout)
+      withTimeout(
+        generateStructuredResponse(messages, {
+          systemPrompt: buildPrompt(DASHBOARD_USER_PROMPT),
+          schema: DashboardUserInfoSchema,
+          maxOutputTokens: 4096,
+        }),
+        600000,
+        "Dashboard User Info generation"
+      ).catch(err => {
+        console.error("[Segment 4 - Dashboard User] Error:", err);
+        return { object: { user: { email: "", targetJob: "", targetCompany: "" }, overallProgress: 0, categoryProgress: [] } };
+      }),
+    ]);
+
+    const phase2Duration = Date.now() - phase2Start;
+    const totalDuration = Date.now() - startTime;
+    console.log(`[Roadmap Generate] Phase 2 completed in ${phase2Duration}ms`);
+    console.log(`[Roadmap Generate] Total generation time: ${totalDuration}ms`);
+
+    // Merge all tasks from both batches and ensure unique IDs
+    const batch1Tasks = tasksBatch1Result.object.tasks || [];
+    const batch2Tasks = tasksBatch2Result.object.tasks || [];
+    const allTasks = [
+      ...batch1Tasks.map((task: any, idx: number) => ({
+        ...task,
+        id: `task_batch1_${idx + 1}_${Date.now()}`, // Unique ID for batch 1
+      })),
+      ...batch2Tasks.map((task: any, idx: number) => ({
+        ...task,
+        id: `task_batch2_${idx + 1}_${Date.now()}`, // Unique ID for batch 2
+      })),
+    ];
+
+    // DERIVE categories from actual roadmap tasks (ensures sync with roadmap page)
+    const buildCategoriesFromTasks = (tasks: any[]) => {
+      const categoryMap = new Map<string, {
+        tasks: { title: string; completed: boolean }[];
+        totalChecklist: number;
+        completedChecklist: number;
+      }>();
+
+      // Group tasks by category (each task has exactly one category now)
+      tasks.forEach(task => {
+        const categoryKey = task.category || "General";
+        if (!categoryMap.has(categoryKey)) {
+          categoryMap.set(categoryKey, {
+            tasks: [],
+            totalChecklist: 0,
+            completedChecklist: 0,
+          });
+        }
+        const cat = categoryMap.get(categoryKey)!;
+        cat.tasks.push({
+          title: task.title || "Untitled Task",
+          completed: task.isCompleted || false,
+        });
+        // Count checklist items for progress
+        const checklist = task.checklist || [];
+        cat.totalChecklist += checklist.length;
+        cat.completedChecklist += checklist.filter((c: any) => c.isCompleted).length;
+      });
+
+      // Category visual config - expanded to handle common AI-generated names
+      const categoryConfig: Record<string, { icon: string; color: string; bgColor: string }> = {
+        // Education and Prerequisites
+        "Education": { icon: "🎓", color: "text-sky-600", bgColor: "bg-sky-100" },
+        "Standardized Tests": { icon: "📝", color: "text-red-600", bgColor: "bg-red-100" },
+        "Professional Licensing": { icon: "⚖️", color: "text-amber-700", bgColor: "bg-amber-50" },
+        "Licensing": { icon: "⚖️", color: "text-amber-700", bgColor: "bg-amber-50" },
+        "Graduate Programs": { icon: "🏛️", color: "text-violet-600", bgColor: "bg-violet-100" },
+        // Technical/Skills variations
+        "Technical Skills": { icon: "💻", color: "text-blue-600", bgColor: "bg-blue-100" },
+        "Technical": { icon: "💻", color: "text-blue-600", bgColor: "bg-blue-100" },
+        "Skills": { icon: "💻", color: "text-blue-600", bgColor: "bg-blue-100" },
+        "Coding": { icon: "💻", color: "text-blue-600", bgColor: "bg-blue-100" },
+        // Certifications
+        "Certifications": { icon: "🏆", color: "text-amber-600", bgColor: "bg-amber-100" },
+        "Certification": { icon: "🏆", color: "text-amber-600", bgColor: "bg-amber-100" },
+        // Portfolio/Projects
+        "Portfolio": { icon: "📁", color: "text-emerald-600", bgColor: "bg-emerald-100" },
+        "Projects": { icon: "📁", color: "text-emerald-600", bgColor: "bg-emerald-100" },
+        // Networking
+        "Networking": { icon: "🤝", color: "text-purple-600", bgColor: "bg-purple-100" },
+        "Connections": { icon: "🤝", color: "text-purple-600", bgColor: "bg-purple-100" },
+        // Experience
+        "Experience": { icon: "💼", color: "text-indigo-600", bgColor: "bg-indigo-100" },
+        "Work Experience": { icon: "💼", color: "text-indigo-600", bgColor: "bg-indigo-100" },
+        // Personal Branding
+        "Personal Branding": { icon: "✨", color: "text-pink-600", bgColor: "bg-pink-100" },
+        "Branding": { icon: "✨", color: "text-pink-600", bgColor: "bg-pink-100" },
+        // Courses/Learning
+        "course": { icon: "📚", color: "text-teal-600", bgColor: "bg-teal-100" },
+        "Courses": { icon: "📚", color: "text-teal-600", bgColor: "bg-teal-100" },
+        "Learning": { icon: "📚", color: "text-teal-600", bgColor: "bg-teal-100" },
+      };
+
+      // Fallback configs for unknown categories (cycles based on hash)
+      const fallbackConfigs = [
+        { icon: "📋", color: "text-slate-600", bgColor: "bg-slate-100" },
+        { icon: "🎯", color: "text-rose-600", bgColor: "bg-rose-100" },
+        { icon: "⚡", color: "text-cyan-600", bgColor: "bg-cyan-100" },
+        { icon: "🔧", color: "text-orange-600", bgColor: "bg-orange-100" },
+        { icon: "📊", color: "text-violet-600", bgColor: "bg-violet-100" },
+      ];
+
+      const getConfig = (key: string) => {
+        if (categoryConfig[key]) return categoryConfig[key];
+        // Hash-based fallback for consistent colors
+        let hash = 0;
+        for (let i = 0; i < key.length; i++) {
+          hash = key.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return fallbackConfigs[Math.abs(hash) % fallbackConfigs.length];
+      };
+
+      // Convert map to array
+      const categories: any[] = [];
+      categoryMap.forEach((data, key) => {
+        const config = getConfig(key);
+        const progress = data.totalChecklist > 0
+          ? Math.round((data.completedChecklist / data.totalChecklist) * 100)
+          : 0;
+
+        categories.push({
+          id: key.toLowerCase().replace(/\s+/g, "-"),
+          title: key,
+          icon: config.icon,
+          color: config.color,
+          bgColor: config.bgColor,
+          tasks: data.tasks,
+          progress,
+        });
+      });
+
+      return categories;
+    };
+
+    const derivedCategories = buildCategoriesFromTasks(allTasks);
+
+    // Assemble final response
+    const finalData = {
+      initialCV: extractedResumeText || "",
+      targetCV: generatedTargetCV || "",
+      roadmap: {
+        tasks: allTasks,
+      },
+      dashboard: {
+        user: dashboardUserResult.object.user || { email: "", targetJob: "", targetCompany: "" },
+        overallProgress: dashboardUserResult.object.overallProgress || 0,
+        categories: derivedCategories,
+      },
+    };
+
+    console.log("[Roadmap Generate] Final data:", {
+      targetCVLength: finalData.targetCV.length,
+      taskCount: allTasks.length,
+      categoryCount: derivedCategories.length,
+    });
+
     return NextResponse.json({
       success: true,
       data: finalData,
     });
   } catch (error) {
-    console.error("[Roadmap Generate] Error in roadmap generation:", error);
+    console.error("[Roadmap Generate] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorDetails = error instanceof Error ? error.stack : "";
-
-    // Log full error for debugging
-    console.error("[Roadmap Generate] Full error details:", {
-      message: errorMessage,
-      stack: errorDetails,
-      error: error,
-    });
-
-    // Check for specific error types
-    let userFriendlyMessage = "Failed to generate roadmap";
-    if (errorMessage.includes("API key")) {
-      userFriendlyMessage = "API key not configured. Please check your environment variables.";
-    } else if (errorMessage.includes("timeout") || errorMessage.includes("aborted")) {
-      userFriendlyMessage = "Request timed out. Please try again.";
-    } else if (errorMessage.includes("quota") || errorMessage.includes("rate limit")) {
-      userFriendlyMessage = "API rate limit exceeded. Please try again later.";
-    }
-
     return NextResponse.json(
-      {
-        error: userFriendlyMessage,
-        details: errorMessage,
-        fullError: process.env.NODE_ENV === "development" ? errorDetails : undefined,
-      },
+      { error: "Failed to generate roadmap", details: errorMessage },
       { status: 500 }
     );
   }
 }
-

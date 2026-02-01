@@ -54,7 +54,7 @@ export async function GET() {
   await new Promise((resolve) => setTimeout(resolve, 300));
 
   // Return stored CVs or defaults
-  return NextResponse.json({ 
+  return NextResponse.json({
     currentCV: cvStore?.currentCV || defaultCurrentCV,
     targetCV: cvStore?.targetCV || defaultTargetCV,
   });
