@@ -193,61 +193,7 @@ export async function saveRoadmap(tasks: Array<{
   });
 }
 
-// CoreSignal (dummy) API
-export type CoreSignalProfile = {
-  id: number;
-  source: string;
-  name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  headline: string | null;
-  location: string | null;
-  country: string | null;
-  industry: string | null;
-  experience: Array<{
-    title: string;
-    company_name: string;
-    company_id: number | null;
-    location: string | null;
-    start_date: string | null;
-    end_date: string | null;
-    is_current: boolean;
-    description: string | null;
-  }>;
-  education: Array<{
-    school_name: string;
-    degree: string | null;
-    field_of_study: string | null;
-    start_date: string | null;
-    end_date: string | null;
-  }>;
-  skills: Array<{ name: string }> | string[];
-  languages: string[] | null;
-  certifications: Array<{
-    name: string;
-    issuer: string | null;
-    issue_date: string | null;
-  }> | null;
-  created_at: string;
-  updated_at: string;
-  linkedin_url?: string | null;
-  profile_picture?: string | null;
-};
-
-export async function fetchCoreSignalProfiles(params: {
-  experience_title: string;
-  experience_company_name: string;
-}) {
-  return fetchAPI<{
-    experience_title: string;
-    experience_company_name: string;
-    filter: { ids: number[]; total: number };
-    profiles: CoreSignalProfile[];
-  }>("/coresignal", {
-    method: "POST",
-    body: JSON.stringify(params),
-  });
-}
+// Removed: fetchCoreSignalProfiles - use getCoreSignalResumes instead (MCP-optimized)
 
 // Auth API
 export async function login(email: string, password: string) {
@@ -457,50 +403,48 @@ export async function getOnboardingData() {
   return fetchAPI<{ data: any; message?: string }>("/onboarding/save");
 }
 
-// CoreSignal API
+// CoreSignal MCP API (optimized with field selection)
 export async function getCoreSignalResumes(experienceTitle: string, experienceCompanyName: string) {
   return fetchAPI<{
-    experience_title: string;
-    experience_company_name: string;
-    filter: { ids: number[]; total: number };
+    success: boolean;
+    action: string;
+    filters: Record<string, any>;
     profiles: Array<{
       id: number;
-      name: string | null;
+      full_name: string;
       headline: string | null;
       location: string | null;
-      country: string | null;
-      industry: string | null;
+      skills: string[];
+      github_repos?: Array<{
+        name: string;
+        summary: string | null;
+        contributions_count: number;
+      }>;
       experience: Array<{
         title: string;
-        company_name: string;
-        location: string | null;
-        start_date: string | null;
-        end_date: string | null;
-        is_current: boolean;
-        description: string | null;
+        company: string;
+        duration_months: number | null;
+        description: string;
       }>;
       education: Array<{
-        school_name: string;
+        school: string;
         degree: string | null;
-        field_of_study: string | null;
-        start_date: string | null;
-        end_date: string | null;
+        field: string | null;
       }>;
-      skills: Array<{ name: string }> | string[];
-      languages: string[] | null;
       certifications: Array<{
         name: string;
         issuer: string | null;
-        issue_date: string | null;
-      }> | null;
-      linkedin_url?: string | null;
-      profile_picture?: string | null;
+      }>;
     }>;
-  }>("/coresignal", {
+    count: number;
+  }>("/coresignal-mcp", {
     method: "POST",
     body: JSON.stringify({
-      experience_title: experienceTitle,
-      experience_company_name: experienceCompanyName,
+      action: "search",
+      filters: {
+        position_title: experienceTitle,
+        company_name: experienceCompanyName || undefined,
+      },
     }),
   });
 }

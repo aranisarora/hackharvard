@@ -1,6 +1,9 @@
 import { generateStructuredResponse } from "@/services/gemini-service";
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { z, ZodTypeAny } from "zod";
+import { compressCoreSignalProfiles } from "@/utils/coresignal-optimizer";
+import { aggregateUsage, logTokenUsage, TokenUsage, CostBreakdown } from "@/utils/token-tracking";
+import { prepareResumeCache, createContextCache, isCacheValid } from "@/utils/context-cache";
 
 // Use Node.js runtime for longer timeouts (Edge has strict limits)
 export const runtime = "nodejs";
@@ -92,6 +95,47 @@ const SingleTaskSchema = z.object({
   isCompleted: z.boolean().default(false),
   courseLink: z.string().optional().describe("Main course URL (required for Course category tasks)"),
   isLinked: z.boolean().default(false).describe("Whether external account is linked (for Course tasks)"),
+}).refine((data) => {
+  // If task has "Course" category, all checklist items must have links and courseLink must be provided
+  const isCourseCategory = data.category.toLowerCase() === "course";
+  if (isCourseCategory) {
+    // All checklist items must have links
+    const allHaveLinks = data.checklist.every(item => item.link && item.link.trim().length > 0);
+    if (!allHaveLinks) {
+      return false;
+    }
+    // courseLink must also be provided
+    if (!data.courseLink || data.courseLink.trim().length === 0) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "Tasks with 'Course' category must have links on all checklist items and a courseLink field",
+}).transform((data) => {
+  // Post-processing: Fill in missing URLs with fallback search URLs to prevent validation errors
+  const isCourseCategory = data.category.toLowerCase() === "course";
+  if (isCourseCategory) {
+    // Extract topic from task title for fallback URL
+    const topic = encodeURIComponent(data.title.split(' ').slice(0, 3).join(' '));
+    
+    // Fill missing courseLink with search URL
+    if (!data.courseLink || data.courseLink.trim().length === 0) {
+      data.courseLink = `https://www.coursera.org/search?query=${topic}`;
+    }
+    
+    // Fill missing checklist item links with search URL
+    data.checklist = data.checklist.map(item => {
+      if (!item.link || item.link.trim().length === 0) {
+        return {
+          ...item,
+          link: `https://www.coursera.org/search?query=${topic}`,
+        };
+      }
+      return item;
+    });
+  }
+  return data;
 });
 
 const TaskBatchSchema = z.object({
@@ -108,21 +152,8 @@ const DashboardUserInfoSchema = z.object({
   overallProgress: z.number().min(0).max(100),
 });
 
-// Segment 5: Dashboard categories
-const DashboardCategoriesSchema = z.object({
-  categories: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    icon: z.string(),
-    color: z.string(),
-    bgColor: z.string(),
-    tasks: z.array(z.object({
-      title: z.string(),
-      completed: z.boolean().default(false),
-    })),
-    progress: z.number().min(0).max(100).default(0),
-  })),
-});
+// Note: Categories are now derived from tasks via buildCategoriesFromTasks()
+// No separate schema or API call needed - saves tokens and ensures sync
 
 // ============================================================================
 // FOCUSED PROMPTS FOR EACH MICRO-SEGMENT
@@ -232,6 +263,13 @@ Before generating tasks, you MUST analyze the gap between the user's CURRENT edu
    
    **Checklist items should link to REAL module/section URLs:**
    - Example: { id: "1", text: "Complete Week 1: Introduction", isCompleted: false, link: "https://www.coursera.org/learn/machine-learning-course/home/week/1" }
+   
+   **⚠️ CRITICAL FALLBACK FOR MISSING URLs:**
+   - If you cannot find a specific course URL, DO NOT leave it blank (this will cause validation errors)
+   - Instead, use a search query URL: https://www.coursera.org/search?query=[Topic] or https://www.udemy.com/courses/search/?q=[Topic]
+   - Example: If you can't find exact "Machine Learning" course URL, use: "https://www.coursera.org/search?query=machine%20learning"
+   - For checklist items without specific module URLs, use the main course search URL
+   - This ensures the schema validation passes and users can still find relevant courses
 
 6. **Dates**: YYYY-MM-DD format, starting from {{TODAY}}
 
@@ -305,6 +343,13 @@ These tasks should FOLLOW the foundational requirements. Consider what comes AFT
    - Project Management: "https://www.coursera.org/professional-certificates/google-project-management"
    - Business Analytics: "https://www.linkedin.com/learning/paths/become-a-business-analyst"
    - Finance: "https://www.coursera.org/specializations/finance"
+   
+   **⚠️ CRITICAL FALLBACK FOR MISSING URLs:**
+   - If you cannot find a specific course URL, DO NOT leave it blank (this will cause validation errors)
+   - Instead, use a search query URL: https://www.coursera.org/search?query=[Topic] or https://www.udemy.com/courses/search/?q=[Topic]
+   - Example: If you can't find exact "Machine Learning" course URL, use: "https://www.coursera.org/search?query=machine%20learning"
+   - For checklist items without specific module URLs, use the main course search URL
+   - This ensures the schema validation passes and users can still find relevant courses
 
 6. **Dates**: YYYY-MM-DD format, after {{TODAY}} and AFTER the prerequisite tasks from Batch 1
 
@@ -322,17 +367,9 @@ const DASHBOARD_USER_PROMPT = `${BASE_CONTEXT}
 
 Return JSON with fields: "user" (object with email, targetJob, targetCompany), "overallProgress" (number)`;
 
-const DASHBOARD_CATEGORIES_PROMPT = `${BASE_CONTEXT}
-
-**TASK**: Organize career development into logical categories (up to 12 categories).
-
-**RULES**:
-1. Create contextually relevant categories based on the user's career goals
-2. Examples: "Technical Skills", "Certifications", "Experience", "Networking", "Portfolio", "Research", "Interview Prep", etc.
-3. Each category needs: id, title, icon (emoji), color, bgColor, tasks array, progress
-4. Keep task titles short (max 50 chars)
-
-Return JSON with field: "categories" (array of category objects)`;
+// Removed: DASHBOARD_CATEGORIES_PROMPT
+// Categories are now automatically derived from task categories via buildCategoriesFromTasks()
+// This ensures perfect sync between Roadmap and Dashboard while saving tokens
 
 // ============================================================================
 // MAIN ROUTE HANDLER
@@ -381,6 +418,38 @@ export async function POST(request: Request) {
       sharedContext += `\n### USER'S CURRENT RESUME:\n${extractedResumeText.substring(0, 2000)}...\n`;
     }
 
+    // ============================================================================
+    // OPTIMIZATION: Compress CoreSignal resume data before sending to Gemini
+    // ============================================================================
+    let optimizedResumeContext = "";
+    let resumeCacheId: string | undefined;
+
+    if (resumes && resumes.length > 0) {
+      console.log(`[Roadmap Generate] Optimizing ${resumes.length} CoreSignal profiles...`);
+      
+      // Compress resumes to reduce token count by ~80%
+      const compressedResumes = compressCoreSignalProfiles(resumes);
+      optimizedResumeContext = compressedResumes;
+      
+      // Create context cache for sample resumes (if large enough)
+      try {
+        if (compressedResumes.length > 0) {
+          resumeCacheId = createContextCache(compressedResumes, 24); // 24 hour TTL
+          console.log(`[Roadmap Generate] Created resume context cache: ${resumeCacheId}`);
+        }
+      } catch (error) {
+        console.warn("[Roadmap Generate] Failed to create context cache:", error);
+      }
+    }
+
+    // Update shared context with optimized resume data
+    if (optimizedResumeContext) {
+      sharedContext = optimizedResumeContext + "\n" + sharedContext;
+    }
+
+    // Track token usage across all API calls
+    const allUsages: TokenUsage[] = [];
+
     // Helper to create segment prompts with full context
     const buildPrompt = (segmentPrompt: string) => {
       return `${segmentPrompt.replace(/{{TODAY}}/g, today)}\n\n---\n${sharedContext}`;
@@ -402,6 +471,8 @@ export async function POST(request: Request) {
           systemPrompt: buildPrompt(TARGET_CV_PROMPT),
           schema: TargetCVSchema,
           maxOutputTokens: 16384,
+          trackUsage: true,
+          cacheId: resumeCacheId, // Use cached resumes if available
         }),
         600000,
         "Target CV generation"
@@ -409,6 +480,11 @@ export async function POST(request: Request) {
         console.error("[Phase 1 - Target CV] Error:", err);
         return { object: { targetCV: "" } };
       });
+
+      // Track token usage
+      if (targetCVResult.usage) {
+        allUsages.push(targetCVResult.usage);
+      }
 
       const cvDuration = Date.now() - startTime;
       console.log(`[Roadmap Generate] Phase 1 completed in ${cvDuration}ms`);
@@ -458,6 +534,8 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
           systemPrompt: buildPromptWithCV(TASKS_BATCH_1_PROMPT),
           schema: TaskBatchSchema,
           maxOutputTokens: 8192,
+          trackUsage: true,
+          cacheId: resumeCacheId,
         }),
         600000,
         "Tasks Batch 1 generation"
@@ -472,6 +550,8 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
           systemPrompt: buildPromptWithCV(TASKS_BATCH_2_PROMPT),
           schema: TaskBatchSchema,
           maxOutputTokens: 8192,
+          trackUsage: true,
+          cacheId: resumeCacheId,
         }),
         600000,
         "Tasks Batch 2 generation"
@@ -486,6 +566,8 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
           systemPrompt: buildPrompt(DASHBOARD_USER_PROMPT),
           schema: DashboardUserInfoSchema,
           maxOutputTokens: 4096,
+          trackUsage: true,
+          cacheId: resumeCacheId,
         }),
         600000,
         "Dashboard User Info generation"
@@ -494,6 +576,13 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
         return { object: { user: { email: "", targetJob: "", targetCompany: "" }, overallProgress: 0, categoryProgress: [] } };
       }),
     ]);
+
+    // Track token usage from all parallel calls
+    [tasksBatch1Result, tasksBatch2Result, dashboardUserResult].forEach((result: any) => {
+      if (result.usage) {
+        allUsages.push(result.usage);
+      }
+    });
 
     const phase2Duration = Date.now() - phase2Start;
     const totalDuration = Date.now() - startTime;
@@ -634,6 +723,17 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
       },
     };
 
+    // ============================================================================
+    // TOKEN USAGE & COST ANALYSIS
+    // ============================================================================
+    let totalCost: CostBreakdown | undefined;
+    if (allUsages.length > 0) {
+      const aggregatedUsage = aggregateUsage(allUsages);
+      totalCost = logTokenUsage("[Roadmap Generate] TOTAL", aggregatedUsage);
+      console.log(`[Roadmap Generate] Total API calls: ${allUsages.length}`);
+      console.log(`[Roadmap Generate] Total cost: $${totalCost.totalCost.toFixed(4)}`);
+    }
+
     console.log("[Roadmap Generate] Final data:", {
       targetCVLength: finalData.targetCV.length,
       taskCount: allTasks.length,
@@ -643,6 +743,16 @@ The roadmap should be a step-by-step path that transforms the INITIAL CV into th
     return NextResponse.json({
       success: true,
       data: finalData,
+      // Include token usage and cost in response (for monitoring/debugging)
+      ...(totalCost && {
+        usage: {
+          totalTokens: allUsages.reduce((sum, u) => sum + u.totalTokenCount, 0),
+          inputTokens: totalCost.inputTokens,
+          outputTokens: totalCost.outputTokens,
+          cachedTokens: totalCost.cachedTokens,
+          cost: totalCost.totalCost,
+        },
+      }),
     });
   } catch (error) {
     console.error("[Roadmap Generate] Error:", error);

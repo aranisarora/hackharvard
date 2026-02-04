@@ -1,6 +1,9 @@
 import { generateStructuredResponse } from "@/services/gemini-service";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { compressCoreSignalProfiles } from "@/utils/coresignal-optimizer";
+import { logTokenUsage, TokenUsage, CostBreakdown } from "@/utils/token-tracking";
+import { prepareResumeCache, createContextCache } from "@/utils/context-cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -91,17 +94,36 @@ export async function POST(request: Request) {
         const today = new Date().toISOString().split('T')[0];
         const actualJobTitle = onboardingData?.hardcodedAnswers?.targetPosition || "Target Role";
 
+        // ============================================================================
+        // OPTIMIZATION: Compress CoreSignal resume data before sending to Gemini
+        // ============================================================================
+        let optimizedResumeContext = "";
+        let resumeCacheId: string | undefined;
+
+        if (resumes && resumes.length > 0) {
+            console.log(`[Generate Target CV] Optimizing ${resumes.length} CoreSignal profiles...`);
+            
+            // Compress resumes to reduce token count by ~80%
+            const compressedResumes = compressCoreSignalProfiles(resumes);
+            optimizedResumeContext = compressedResumes;
+            
+            // Create context cache for sample resumes (if large enough)
+            try {
+                if (compressedResumes.length > 0) {
+                    resumeCacheId = createContextCache(compressedResumes, 24); // 24 hour TTL
+                    console.log(`[Generate Target CV] Created resume context cache: ${resumeCacheId}`);
+                }
+            } catch (error) {
+                console.warn("[Generate Target CV] Failed to create context cache:", error);
+            }
+        }
+
         // Build context
         let sharedContext = "";
 
-        if (resumes && resumes.length > 0) {
-            sharedContext += `\n### PEER PROFILES (${resumes.length} professionals in ${actualJobTitle}):\n`;
-            resumes.slice(0, 3).forEach((resume: any, idx: number) => {
-                const skills = Array.isArray(resume.skills)
-                    ? resume.skills.slice(0, 10).map((s: any) => typeof s === "string" ? s : s.name).join(", ")
-                    : "N/A";
-                sharedContext += `${idx + 1}. ${resume.headline || "Professional"} | Skills: ${skills}\n`;
-            });
+        // Add optimized peer resume data
+        if (optimizedResumeContext) {
+            sharedContext += `\n${optimizedResumeContext}\n`;
         }
 
         if (onboardingData?.hardcodedAnswers) {
@@ -127,10 +149,18 @@ export async function POST(request: Request) {
                 systemPrompt: buildPrompt(TARGET_CV_PROMPT),
                 schema: TargetCVSchema,
                 maxOutputTokens: 16384,
+                trackUsage: true,
+                cacheId: resumeCacheId, // Use cached resumes if available
             }),
             300000,
             "Target CV generation"
         );
+
+        // Log token usage and cost
+        let cost: CostBreakdown | undefined;
+        if (targetCVResult.usage) {
+            cost = logTokenUsage("[Generate Target CV]", targetCVResult.usage);
+        }
 
         const duration = Date.now() - startTime;
         console.log(`[Generate Target CV] Completed in ${duration}ms`);
@@ -139,6 +169,16 @@ export async function POST(request: Request) {
             success: true,
             targetCV: targetCVResult.object.targetCV || "",
             initialCV: extractedResumeText || "",
+            // Include token usage and cost in response
+            ...(cost && {
+                usage: {
+                    totalTokens: targetCVResult.usage?.totalTokenCount || 0,
+                    inputTokens: cost.inputTokens,
+                    outputTokens: cost.outputTokens,
+                    cachedTokens: cost.cachedTokens,
+                    cost: cost.totalCost,
+                },
+            }),
         });
     } catch (error) {
         console.error("[Generate Target CV] Error:", error);

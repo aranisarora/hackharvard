@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { getOnboardingData, getCoreSignalResumes, generateRoadmap, generateTargetCV, saveCV, saveRoadmap, saveDashboardData } from "@/lib/api";
+import { normalizeCompanyName } from "@/lib/utils";
 import {
   Search,
   FileText,
@@ -112,8 +113,10 @@ function GenerateRoadmapContent() {
         setOnboardingData(response.data);
 
         const jobTitle = response.data.hardcodedAnswers?.targetPosition || "Product Designer";
-        const company = response.data.hardcodedAnswers?.targetCompany || "Pathforge";
-
+        const rawCompany = response.data.hardcodedAnswers?.targetCompany || "Pathforge";
+        
+        // Normalize company name - ensure we have a real company (not vague responses like "not sure" or "any high tech company")
+        const company = normalizeCompanyName(rawCompany, jobTitle);
         setActualJobTitle(jobTitle);
         setActualCompany(company);
 
@@ -579,22 +582,26 @@ function GenerateRoadmapContent() {
                                       </div>
                                     )}
 
-                                    {profile.skills && profile.skills.length > 0 && (
-                                      <div>
-                                        <h4 className="font-semibold text-sm text-foreground mb-2">Skills</h4>
-                                        <div className="flex flex-wrap gap-2 pl-6">
-                                          {(Array.isArray(profile.skills) ? profile.skills : []).slice(0, 6).map((skill: any, i: number) => {
-                                            const skillName = typeof skill === "string" ? skill : skill.name;
-                                            return (
-                                              <span key={i} className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-                                                {skillName}
-                                              </span>
-                                            );
-                                          })}
-                                        </div>
+                                  {/* Skills Section */}
+                                  {profile.skills && profile.skills.length > 0 && (
+                                    <div>
+                                      <h4 className="font-semibold text-sm text-foreground mb-3">Skills</h4>
+                                      <div className="flex flex-wrap gap-2 pl-6">
+                                        {(Array.isArray(profile.skills) ? profile.skills : []).slice(0, 8).map((skill: any, skillIndex: number) => {
+                                          const skillName = typeof skill === "string" ? skill : (skill.skill || skill.name);
+                                          return (
+                                            <span
+                                              key={skillIndex}
+                                              className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full"
+                                            >
+                                              {skillName}
+                                            </span>
+                                          );
+                                        })}
                                       </div>
-                                    )}
-                                  </div>
+                                    </div>
+                                  )}
+                                </div>
                                 </Card>
                               )}
                             </div>

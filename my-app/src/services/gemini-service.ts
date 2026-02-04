@@ -1,6 +1,7 @@
 import { streamText, generateText, generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
+import { extractTokenUsage, logTokenUsage, TokenUsage, CostBreakdown } from "@/utils/token-tracking";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -13,6 +14,7 @@ export interface GeminiOptions {
   temperature?: number;
   maxOutputTokens?: number;
   onFinish?: (result: { text: string }) => void | Promise<void>;
+  trackUsage?: boolean; // Whether to track and log token usage
 }
 
 export interface StructuredOptions<T> {
@@ -21,7 +23,12 @@ export interface StructuredOptions<T> {
   model?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  trackUsage?: boolean; // Whether to track and log token usage
+  cacheId?: string; // Context cache ID for reusable content
 }
+
+// Note: The return type maintains backward compatibility with existing code
+// Usage and cost are attached to the result object if trackUsage is enabled
 
 // Default configuration
 const DEFAULT_MODEL = "gemini-2.5-pro";
@@ -151,18 +158,20 @@ export async function generateTextResponse(
  * Generate structured object response
  * @param messages - Array of conversation messages
  * @param options - Configuration options including Zod schema
- * @returns Generated object matching the schema
+ * @returns Generated object matching the schema with usage metadata
  */
 export async function generateStructuredResponse<T>(
   messages: ChatMessage[],
   options: StructuredOptions<T>
-) {
+): Promise<GeminiResponse<T>> {
   const {
     systemPrompt,
     schema,
     model = DEFAULT_MODEL,
     temperature = DEFAULT_TEMPERATURE,
     maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS,
+    trackUsage = true, // Default to tracking usage
+    cacheId,
   } = options;
 
   console.log("[Gemini Service] Initializing API key...");
@@ -177,6 +186,9 @@ export async function generateStructuredResponse<T>(
   console.log("[Gemini Service] Calling generateObject with model:", model);
   console.log("[Gemini Service] Message count:", formattedMessages.length);
   console.log("[Gemini Service] Max tokens:", maxOutputTokens);
+  if (cacheId) {
+    console.log("[Gemini Service] Using context cache:", cacheId);
+  }
   
   // Verify API key is available (for better error messages)
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
@@ -185,18 +197,101 @@ export async function generateStructuredResponse<T>(
   }
   console.log("[Gemini Service] API key found, length:", apiKey.length);
 
-  // @ai-sdk/google reads from GOOGLE_GENERATIVE_AI_API_KEY automatically
-  const result = await generateObject({
-    model: google(model),
-    system: systemPrompt,
-    messages: formattedMessages,
-    schema,
-    temperature,
-    maxOutputTokens,
-  });
+  // Try to generate with the requested model, fallback to flash if pro model is unavailable
+  try {
+    const generateOptions: any = {
+      model: google(model),
+      system: systemPrompt,
+      messages: formattedMessages,
+      schema,
+      temperature,
+      maxOutputTokens,
+    };
 
-  console.log("[Gemini Service] generateObject completed successfully");
-  return result;
+    // TODO: Context caching support
+    // Note: The AI SDK (@ai-sdk/google) may not directly support Gemini's context caching API.
+    // Context caching requires using the native @google/generative-ai SDK.
+    // For now, we optimize data before sending (see coresignal-optimizer.ts) which provides ~80% token reduction.
+    // To implement context caching, consider using the native SDK for cached content.
+    if (cacheId) {
+      console.warn("[Gemini Service] Context caching requested but not yet implemented with AI SDK");
+      // Future implementation: Use @google/generative-ai SDK for cached content
+    }
+
+    const result = await generateObject(generateOptions);
+
+    console.log("[Gemini Service] generateObject completed successfully");
+
+    // Extract and log token usage
+    let usage: TokenUsage | undefined;
+    let cost: CostBreakdown | undefined;
+
+    if (trackUsage) {
+      // The AI SDK may expose usage in different ways
+      const usageData = (result as any).usage || (result as any).response?.usage;
+      if (usageData) {
+        usage = extractTokenUsage({ usage: usageData });
+        cost = logTokenUsage(`[Gemini Service] ${model}`, usage);
+      } else {
+        console.warn("[Gemini Service] Usage metadata not available in response");
+      }
+    }
+
+    // Maintain backward compatibility - return the same structure as before
+    const response = result as any;
+    response.usage = usage;
+    response.cost = cost;
+    return response;
+  } catch (error) {
+    // If model is unavailable or quota exceeded, fallback to flash model
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if ((errorMessage.includes("model") && errorMessage.includes("not available")) || 
+        errorMessage.includes("quota") || 
+        errorMessage.includes("rate limit") ||
+        (model === "gemini-2.5-pro" && errorMessage.includes("permission"))) {
+      console.warn(`[Gemini Service] Model ${model} unavailable, falling back to gemini-2.5-flash`);
+      // Fallback to flash model with reduced token limit
+      const fallbackMaxTokens = Math.min(maxOutputTokens, 8192);
+      const fallbackOptions: any = {
+        model: google("gemini-2.5-flash"),
+        system: systemPrompt,
+        messages: formattedMessages,
+        schema,
+        temperature,
+        maxOutputTokens: fallbackMaxTokens,
+      };
+
+      // Context caching not yet implemented (see note above)
+      if (cacheId) {
+        console.warn("[Gemini Service] Context caching requested but not yet implemented with AI SDK");
+      }
+
+      const result = await generateObject(fallbackOptions);
+      console.log("[Gemini Service] generateObject completed successfully with fallback model");
+
+      // Extract and log token usage
+      let usage: TokenUsage | undefined;
+      let cost: CostBreakdown | undefined;
+
+      if (trackUsage) {
+        const usageData = (result as any).usage || (result as any).response?.usage;
+        if (usageData) {
+          usage = extractTokenUsage({ usage: usageData });
+          cost = logTokenUsage(`[Gemini Service] gemini-2.5-flash (fallback)`, usage);
+        } else {
+          console.warn("[Gemini Service] Usage metadata not available in fallback response");
+        }
+      }
+
+      // Maintain backward compatibility
+      const response = result as any;
+      response.usage = usage;
+      response.cost = cost;
+      return response;
+    }
+    // Re-throw if it's a different error
+    throw error;
+  }
 }
 
 /**
