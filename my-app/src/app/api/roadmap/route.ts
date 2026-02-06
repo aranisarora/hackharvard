@@ -1,46 +1,5 @@
 import { NextResponse } from "next/server";
-
-// Simple in-memory store (in production, use database)
-let roadmapStore: {
-  tasks: Array<{
-    id: string;
-    category: string;
-    title: string;
-    description: string;
-    checklist: Array<{ id: string; text: string; isCompleted: boolean; link?: string }>;
-    deadline: string;
-    startDate?: string;
-    endDate?: string;
-    isCompleted: boolean;
-    courseLink?: string;
-    isLinked?: boolean;
-    mentor?: {
-      name: string;
-      title: string;
-      company: string;
-      email: string;
-      profileImage?: string;
-      description?: string;
-    };
-  }>;
-} | null = null;
-
-// Helper to get onboarding data
-async function getOnboardingData() {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/onboarding/save`, {
-      cache: 'no-store',
-    });
-    if (response.ok) {
-      const data = await response.json();
-      return data.data;
-    }
-  } catch (error) {
-    console.error("Error fetching onboarding data:", error);
-  }
-  return null;
-}
+import { createClient } from "@/lib/supabase/server";
 
 // Default roadmap tasks (fallback)
 const defaultRoadmapTasks = [
@@ -157,38 +116,61 @@ const defaultRoadmapTasks = [
   },
 ];
 
+// In Supabase, we store roadmap tasks as a single JSONB column per user:
+// Table: roadmaps (user_id uuid PRIMARY KEY, tasks_json jsonb, updated_at timestamptz)
 
 export async function GET() {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  // Return stored roadmap if available
-  if (roadmapStore?.tasks) {
-    return NextResponse.json({
-      tasks: roadmapStore.tasks
-    });
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data, error } = await supabase
+      .from("roadmaps")
+      .select("tasks_json")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[Roadmap GET] Supabase error:", error);
+      return NextResponse.json(
+        { error: "Failed to load roadmap" },
+        { status: 500 }
+      );
+    }
+
+    const tasks = (data?.tasks_json as any[]) ?? defaultRoadmapTasks;
+
+    return NextResponse.json({ tasks });
+  } catch (error) {
+    console.error("[Roadmap GET] Unexpected error:", error);
+    return NextResponse.json(
+      { error: "Failed to load roadmap" },
+      { status: 500 }
+    );
   }
-
-  // Check if onboarding data exists (roadmap might not be generated yet)
-  const onboardingData = await getOnboardingData();
-  if (onboardingData) {
-    // Roadmap hasn't been generated yet, return empty or defaults
-    // The generate-roadmap page will populate this
-    return NextResponse.json({
-      tasks: defaultRoadmapTasks
-    });
-  }
-
-  // Return defaults if no data found
-  return NextResponse.json({
-    tasks: defaultRoadmapTasks
-  });
 }
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { tasks } = body;
+    const { tasks } = body as { tasks?: any[] };
 
     if (!tasks || !Array.isArray(tasks)) {
       return NextResponse.json(
@@ -197,12 +179,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Store the roadmap
-    roadmapStore = { tasks };
-    
+    const { error } = await supabase
+      .from("roadmaps")
+      .upsert(
+        {
+          user_id: user.id,
+          tasks_json: tasks,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (error) {
+      console.error("[Roadmap POST] Supabase error:", error);
+      return NextResponse.json(
+        { error: "Failed to save roadmap" },
+        { status: 500 }
+      );
+    }
+
     console.log(`[Roadmap Save] Saved roadmap data:`, {
       taskCount: tasks.length,
-      taskTitles: tasks.map(t => t.title).slice(0, 3)
+      taskTitles: tasks.map((t: any) => t.title).slice(0, 3),
     });
 
     return NextResponse.json({
@@ -210,7 +208,7 @@ export async function POST(request: Request) {
       tasks,
     });
   } catch (error) {
-    console.error("[Roadmap Save] Error saving roadmap data:", error);
+    console.error("[Roadmap POST] Unexpected error:", error);
     return NextResponse.json(
       { error: "Failed to save roadmap" },
       { status: 500 }
@@ -219,32 +217,121 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const body = await request.json();
-  const { taskId, checklistItemId, isCompleted, deadline, startDate, endDate } = body;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 200));
-
-  // Update task dates if provided
-  if (roadmapStore && taskId && (deadline !== undefined || startDate !== undefined || endDate !== undefined)) {
-    const task = roadmapStore.tasks.find(t => t.id === taskId);
-    if (task) {
-      if (deadline !== undefined) task.deadline = deadline;
-      if (startDate !== undefined) task.startDate = startDate;
-      if (endDate !== undefined) task.endDate = endDate;
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const body = await request.json();
+    const {
+      taskId,
+      checklistItemId,
+      isCompleted,
+      deadline,
+      startDate,
+      endDate,
+    } = body as {
+      taskId?: string;
+      checklistItemId?: string;
+      isCompleted?: boolean;
+      deadline?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+
+    // Load current roadmap
+    const { data, error } = await supabase
+      .from("roadmaps")
+      .select("tasks_json")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[Roadmap PATCH] Supabase fetch error:", error);
+      return NextResponse.json(
+        { error: "Failed to update roadmap" },
+        { status: 500 }
+      );
+    }
+
+    const tasks: any[] = (data?.tasks_json as any[]) ?? [];
+
+    if (!taskId) {
+      return NextResponse.json(
+        { error: "taskId is required" },
+        { status: 400 }
+      );
+    }
+
+    const updatedTasks = tasks.map((task) => {
+      if (task.id !== taskId) return task;
+
+      const updatedTask = { ...task };
+
+      // Update dates if provided
+      if (deadline !== undefined) updatedTask.deadline = deadline;
+      if (startDate !== undefined) updatedTask.startDate = startDate;
+      if (endDate !== undefined) updatedTask.endDate = endDate;
+
+      // Update checklist item completion if provided
+      if (
+        checklistItemId &&
+        typeof isCompleted === "boolean" &&
+        Array.isArray(updatedTask.checklist)
+      ) {
+        updatedTask.checklist = updatedTask.checklist.map((item: any) =>
+          item.id === checklistItemId
+            ? { ...item, isCompleted }
+            : item
+        );
+        // Recompute task completion
+        const checklist = updatedTask.checklist;
+        if (checklist.length > 0) {
+          updatedTask.isCompleted = checklist.every(
+            (item: any) => item.isCompleted
+          );
+        }
+      }
+
+      return updatedTask;
+    });
+
+    const { error: updateError } = await supabase
+      .from("roadmaps")
+      .update({
+        tasks_json: updatedTasks,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("[Roadmap PATCH] Supabase update error:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update roadmap" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      taskId,
+      checklistItemId,
+      isCompleted,
+      deadline,
+      startDate,
+      endDate,
+    });
+  } catch (error) {
+    console.error("[Roadmap PATCH] Unexpected error:", error);
+    return NextResponse.json(
+      { error: "Failed to update roadmap" },
+      { status: 500 }
+    );
   }
-
-  // In a real app, this would update the database
-  // For now, just return success
-  return NextResponse.json({
-    success: true,
-    taskId,
-    checklistItemId,
-    isCompleted,
-    deadline,
-    startDate,
-    endDate,
-  });
 }
-

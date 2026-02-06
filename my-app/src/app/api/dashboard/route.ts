@@ -1,39 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeCompanyName } from "@/lib/utils";
-
-// Simple in-memory store (in production, use database)
-let dashboardStore: {
-  user: { email: string; targetJob: string; targetCompany: string };
-  overallProgress: number;
-  categories: Array<{
-    id: string;
-    title: string;
-    icon: string;
-    color: string;
-    bgColor: string;
-    tasks: Array<{ title: string; completed: boolean }>;
-    progress: number;
-  }>;
-} | null = null;
-
-// Helper to get onboarding data from the same route file
-async function getOnboardingData() {
-  try {
-    // Import the onboarding store - since they're in different files, we'll fetch via HTTP
-    // In a real app, this would be a shared store or database
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/onboarding/save`, {
-      cache: 'no-store',
-    });
-    if (response.ok) {
-      const data = await response.json();
-      return data.data;
-    }
-  } catch (error) {
-    console.error("Error fetching onboarding data:", error);
-  }
-  return null;
-}
+import { createClient } from "@/lib/supabase/server";
 
 // Default dashboard data (fallback)
 const defaultCategories = [
@@ -88,77 +55,149 @@ const defaultCategories = [
   },
 ];
 
+// In Supabase, we store dashboard data per user as a JSON blob:
+// Table: dashboards (user_id uuid PRIMARY KEY, user_target_job text, user_target_company text,
+//                    overall_progress int, categories_json jsonb, updated_at timestamptz)
+
 export async function GET() {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  // Return stored dashboard data if available
-  if (dashboardStore) {
-    return NextResponse.json(dashboardStore);
-  }
+    if (authError || !user) {
+      // For unauthenticated users, just return defaults
+      return NextResponse.json({
+        user: {
+          email: "",
+          targetJob: "Software Engineer",
+          targetCompany: "Google",
+        },
+        overallProgress: 45,
+        categories: defaultCategories,
+      });
+    }
 
-  // Try to get data from onboarding store and create basic dashboard
-  const onboardingData = await getOnboardingData();
-  if (onboardingData?.hardcodedAnswers) {
-    const answers = onboardingData.hardcodedAnswers;
-    const jobTitle = answers.targetPosition || "Software Engineer";
-    const rawCompany = answers.targetCompany || "Google";
-    // Normalize company name to ensure we have a real company
-    const normalizedCompany = normalizeCompanyName(rawCompany, jobTitle);
-    const basicDashboard = {
+    const { data, error } = await supabase
+      .from("dashboards")
+      .select(
+        "user_target_job, user_target_company, overall_progress, categories_json"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[Dashboard GET] Supabase error:", error);
+      return NextResponse.json(
+        { error: "Failed to load dashboard" },
+        { status: 500 }
+      );
+    }
+
+    if (data) {
+      return NextResponse.json({
+        user: {
+          email: user.email ?? "",
+          targetJob: data.user_target_job,
+          targetCompany: data.user_target_company,
+        },
+        overallProgress: data.overall_progress,
+        categories: data.categories_json ?? defaultCategories,
+      });
+    }
+
+    // No stored dashboard yet – use defaults
+    return NextResponse.json({
       user: {
-        email: "",
-        targetJob: jobTitle,
-        targetCompany: normalizedCompany,
+        email: user.email ?? "",
+        targetJob: "Software Engineer",
+        targetCompany: "Google",
       },
-      overallProgress: 0, // Will be updated when roadmap is generated
+      overallProgress: 45,
       categories: defaultCategories,
-    };
-    return NextResponse.json(basicDashboard);
+    });
+  } catch (error) {
+    console.error("[Dashboard GET] Unexpected error:", error);
+    return NextResponse.json(
+      { error: "Failed to load dashboard" },
+      { status: 500 }
+    );
   }
-
-  // Return defaults if no data found
-  return NextResponse.json({
-    user: {
-      email: "user@example.com",
-      targetJob: "Software Engineer",
-      targetCompany: "Google",
-    },
-    overallProgress: 45,
-    categories: defaultCategories,
-  });
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { user, overallProgress, categories } = body;
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!user || overallProgress === undefined || !categories) {
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { user: dashboardUser, overallProgress, categories } = body as {
+      user?: { email?: string; targetJob?: string; targetCompany?: string };
+      overallProgress?: number;
+      categories?: any[];
+    };
+
+    if (!dashboardUser || overallProgress === undefined || !categories) {
       return NextResponse.json(
         { error: "user, overallProgress, and categories are required" },
         { status: 400 }
       );
     }
 
-    // Store the dashboard data
-    dashboardStore = { user, overallProgress, categories };
-    
+    const rawCompany = dashboardUser.targetCompany || "Google";
+    const jobTitle = dashboardUser.targetJob || "Software Engineer";
+    const normalizedCompany = normalizeCompanyName(rawCompany, jobTitle);
+
+    const { error } = await supabase
+      .from("dashboards")
+      .upsert(
+        {
+          user_id: user.id,
+          user_target_job: jobTitle,
+          user_target_company: normalizedCompany,
+          overall_progress: overallProgress,
+          categories_json: categories,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (error) {
+      console.error("[Dashboard POST] Supabase error:", error);
+      return NextResponse.json(
+        { error: "Failed to save dashboard data" },
+        { status: 500 }
+      );
+    }
+
     console.log(`[Dashboard Save] Saved dashboard data:`, {
-      targetJob: user.targetJob,
-      targetCompany: user.targetCompany,
+      targetJob: jobTitle,
+      targetCompany: normalizedCompany,
       overallProgress,
-      categoryCount: categories.length
+      categoryCount: categories.length,
     });
 
     return NextResponse.json({
       success: true,
-      user,
+      user: {
+        email: user.email ?? "",
+        targetJob: jobTitle,
+        targetCompany: normalizedCompany,
+      },
       overallProgress,
       categories,
     });
   } catch (error) {
-    console.error("[Dashboard Save] Error saving dashboard data:", error);
+    console.error("[Dashboard POST] Unexpected error:", error);
     return NextResponse.json(
       { error: "Failed to save dashboard data" },
       { status: 500 }
